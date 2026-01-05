@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  nlp_service:
+    build: ./NLP_service
+    ports:
+      - "8000:8000"
+
+  backend:
+    build: ./Backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - nlp_service
+      - embedding_service
+      - matching_service
+
+  embedding_service:
+    build: ./Embedding_service
+    ports:
+      - "5001:5001"
+
+  matching_service:
+    build: ./Matching&Ranking_service
+    ports:
+      - "5002:5002"
+
+  nlp_embedding_service:
+    build: ./NLP&Embedding_Orchestrator
+    ports:
+      - "5003:5003"
+    depends_on:
+      - nlp_service
+      - embedding_service
