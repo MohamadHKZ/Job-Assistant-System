@@ -9,7 +9,9 @@ RUN pip install --upgrade pip && \
 
 COPY main.py .
 
-COPY models /app/models
+COPY download_model.py .
+
+RUN python download_model.py
 
 EXPOSE 5001
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5001"]
