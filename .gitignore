@@ -459,5 +459,5 @@ pyrightconfig.json
 # Ignore all local history of files
 .history
 .ionide
-
+*/models
 # End of https://www.toptal.com/developers/gitignore/api/python,aspnetcore,visualstudiocode
