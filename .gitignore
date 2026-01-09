@@ -460,4 +460,5 @@ pyrightconfig.json
 .history
 .ionide
 */models
+test.txt
 # End of https://www.toptal.com/developers/gitignore/api/python,aspnetcore,visualstudiocode

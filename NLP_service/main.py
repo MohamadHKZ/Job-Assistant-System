@@ -1,77 +1,68 @@
-import numpy as np
+import os
+import requests
+import json
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+# ---------------------------------------------------------
+# CONFIG (FROM ENV)
+# ---------------------------------------------------------
+API_KEY = os.getenv("OPENROUTER_API_KEY")
+MODEL_NAME = os.getenv("OPENROUTER_MODEL")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+if not API_KEY:
+    raise RuntimeError("OPENROUTER_API_KEY environment variable is not set")
+
+# ---------------------------------------------------------
+# FASTAPI APP
+# ---------------------------------------------------------
+app = FastAPI(title="LLM Prompt Service")
+
+# ---------------------------------------------------------
+# REQUEST / RESPONSE MODELS
+# ---------------------------------------------------------
+class PromptRequest(BaseModel):
+    prompt: str
+
+
+class PromptResponse(BaseModel):
+    response: str
 
 
 # ---------------------------------------------------------
-# Cosine similarity
+# LLM CALL FUNCTION
 # ---------------------------------------------------------
-def cosine_similarity(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+def call_llm(prompt: str) -> str:
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "X-Title": "Job Assistant System NLP Service",
+        "Content-Type": "application/json",
+    }
 
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
 
-# ---------------------------------------------------------
-# Generic N×M category matcher
-# ---------------------------------------------------------
-def array_match(cv_vecs, job_vecs, weight,cv_path,job_path):
-    if job_vecs.shape[0] == 0:
-      return weight
-    n = len(job_vecs)
-    per_job_item_weight = weight / n
-    total = 0.0
-
-    for job_vec in job_vecs:
-        best_similarity = 0.0
-
-        for cv_vec in cv_vecs:
-            sim = cosine_similarity(cv_vec, job_vec)
-            best_similarity = max(best_similarity, sim)
-
-        # Decision based on best similarity
-        if best_similarity >= 0.65:
-            # Reward
-            total += per_job_item_weight*best_similarity
-
-
-    # Clamp score to [0, weight]
-    total = max(0, min(total, weight))
-    return total
-
-
-# ---------------------------------------------------------
-# Weights
-# ---------------------------------------------------------
-weights = {
-    "technical_skills": 0.35,
-    "job_position_skills": 0.40,
-    "field_skills": 0.15,
-    "job_title": 0.05,
-    "soft_skills": 0.05
-}
-
-
-# ---------------------------------------------------------
-# FINAL CALCULATION
-# ---------------------------------------------------------
-print("\n=====================================")
-print("         FINAL MATCH RESULTS         ")
-print("=====================================\n")
-
-final_score = 0.0
-
-for category, weight in weights.items():
-    contribution = array_match(
-        cv_data[category],
-        job_data[category],
-        weight,
-        f"/content/drive/MyDrive/embeddings/cv_{category}.npy",
-        f"/content/drive/MyDrive/embeddings/job_{category}.npy"
+    response = requests.post(
+        OPENROUTER_URL,
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=30
     )
+    response.raise_for_status()
 
-    print(f"Category: {category}")
-    print(f"  Contribution: {contribution:.4f}  ({contribution*100:.2f}%)")
-
-    final_score += contribution
-
-
-final_percentage = final_score * 100
+    result = response.json()
+    return result["choices"][0]["message"]["content"]
 
 
+# ---------------------------------------------------------
+# API ENDPOINT
+# ---------------------------------------------------------
+@app.post("/llm/ask", response_model=PromptResponse)
+def ask_llm(payload: PromptRequest):
+    answer = call_llm(payload.prompt)
+    return {"response": answer}

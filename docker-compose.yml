@@ -5,7 +5,10 @@ services:
     build: ./NLP_service
     ports:
       - "8000:8000"
-
+    environment:
+      OPENROUTER_MODEL: "xiaomi/mimo-v2-flash:free"
+    env_file:
+      - ./.env
   backend:
     build: ./Backend
     ports:
