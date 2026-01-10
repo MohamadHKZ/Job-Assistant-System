@@ -15,8 +15,8 @@ app = FastAPI(title="Job Embedding Service")
 # ---------------------------------------------------------
 # Input schema (validation)
 # ---------------------------------------------------------
-class Job(BaseModel):
-    job_id: int
+class Embedding_Entity(BaseModel):
+    id: int
     technical_skills: List[str] = []
     job_position_skills: List[str] = []
     field_skills: List[str] = []
@@ -53,7 +53,7 @@ def embed_jobs(jobs):
 
     result = [
         {
-            "job_id": job.job_id,
+            "id": job.id,
             "embeddings": {field: [] for field in skill_fields}
         }
         for job in jobs
@@ -71,5 +71,5 @@ def embed_jobs(jobs):
 # API endpoint
 # ---------------------------------------------------------
 @app.post("/embed/jobs")
-def embed_jobs_endpoint(jobs: List[Job]):
+def embed_jobs_endpoint(jobs: List[Embedding_Entity]):
     return embed_jobs(jobs)

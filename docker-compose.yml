@@ -35,3 +35,6 @@ services:
     depends_on:
       - nlp_service
       - embedding_service
+    environment:
+      NLP_SERVICE_URL: "http://nlp_service:8000/llm/ask"
+      EMBEDDING_SERVICE_URL: "http://embedding_service:5001/embed/jobs"

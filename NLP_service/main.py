@@ -1,4 +1,7 @@
+from typing import Any, List
+from fastapi import HTTPException
 import os
+from pyparsing import Dict, Union
 import requests
 import json
 from fastapi import FastAPI
@@ -17,7 +20,7 @@ if not API_KEY:
 # ---------------------------------------------------------
 # FASTAPI APP
 # ---------------------------------------------------------
-app = FastAPI(title="LLM Prompt Service")
+app = FastAPI(title="NLP Service")
 
 # ---------------------------------------------------------
 # REQUEST / RESPONSE MODELS
@@ -27,13 +30,18 @@ class PromptRequest(BaseModel):
 
 
 class PromptResponse(BaseModel):
-    response: str
+    response: object
 
-
+def strip_json_fences(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("json")[1]
+        text = text.split("```")[0]
+    return text.strip()
 # ---------------------------------------------------------
 # LLM CALL FUNCTION
 # ---------------------------------------------------------
-def call_llm(prompt: str) -> str:
+def call_llm(prompt: str) -> PromptResponse:
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "X-Title": "Job Assistant System NLP Service",
@@ -56,7 +64,16 @@ def call_llm(prompt: str) -> str:
     response.raise_for_status()
 
     result = response.json()
-    return result["choices"][0]["message"]["content"]
+    raw_content = result["choices"][0]["message"]["content"]
+    raw_content = strip_json_fences(raw_content)
+    # Parse model output into JSON
+    try:
+        return json.loads(raw_content)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail=f"LLM did not return valid JSON\n\n{raw_content}"
+        )
 
 
 # ---------------------------------------------------------
