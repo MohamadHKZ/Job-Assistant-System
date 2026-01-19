@@ -1,7 +1,6 @@
-version: "3.9"
-
 services:
   nlp_service:
+    image: mohamad121/jobassistantsystem-nlp_service:latest
     build: ./NLP_service
     ports:
       - "8000:8000"
@@ -9,6 +8,7 @@ services:
       OPENROUTER_MODEL: "xiaomi/mimo-v2-flash:free"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
   backend:
+    image: mohamad121/jobassistantsystem-backend:latest
     build: ./Backend/API
     ports:
       - "5000:5000"
@@ -24,16 +24,19 @@ services:
       ConnectionStrings__DefaultConnection: "${JobAssistantDbConnectionString}"
 
   embedding_service:
+    image: mohamad121/jobassistantsystem-embedding_service:latest
     build: ./Embedding_service
     ports:
       - "5001:5001"
 
   matching_service:
+    image: mohamad121/jobassistantsystem-matching_service:latest
     build: ./Matching&Ranking_service
     ports:
       - "5002:5002"
 
   nlp_embedding_service:
+    image: mohamad121/jobassistantsystem-nlp_embedding_service:latest
     build: ./NLP&Embedding_Orchestrator
     ports:
       - "5003:5003"
@@ -45,6 +48,7 @@ services:
       EMBEDDING_SERVICE_URL: "http://embedding_service:5001/embed/jobs"
 
   frontend:
+    image: mohamad121/jobassistantsystem-frontend:latest
     build: ./Frontend
     ports:
       - "5004:5173"
