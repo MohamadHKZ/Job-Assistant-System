@@ -10,13 +10,20 @@ services:
     env_file:
       - ./.env
   backend:
-    build: ./Backend
+    build: ./Backend/API
     ports:
       - "5000:5000"
     depends_on:
       - nlp_service
       - embedding_service
       - matching_service
+    environment:
+      NLP_SERVICE_BASEURL: "http://nlp_service:8000"
+      NLP_EMBEDDING_ORCHESTRATOR_BASEURL: "http://embedding_service:5001"
+      MATCHING_SERVICE_BASE_URL: "http://matching_service:5002"
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+    env_file:
+      - ./.env
 
   embedding_service:
     build: ./Embedding_service
