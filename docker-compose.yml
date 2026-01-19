@@ -7,8 +7,7 @@ services:
       - "8000:8000"
     environment:
       OPENROUTER_MODEL: "xiaomi/mimo-v2-flash:free"
-    env_file:
-      - ./.env
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
   backend:
     build: ./Backend/API
     ports:
@@ -22,8 +21,7 @@ services:
       NLP_EMBEDDING_ORCHESTRATOR_BASEURL: "http://nlp_embedding_service:5003"
       MATCHING_SERVICE_BASE_URL: "http://matching_service:5002"
       ASPNETCORE_URLS: http://0.0.0.0:5000
-    env_file:
-      - ./.env
+      ConnectionStrings__DefaultConnection: "${JobAssistantDbConnectionString}"
 
   embedding_service:
     build: ./Embedding_service
