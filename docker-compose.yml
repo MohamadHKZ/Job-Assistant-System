@@ -19,7 +19,7 @@ services:
       - matching_service
     environment:
       NLP_SERVICE_BASEURL: "http://nlp_service:8000"
-      NLP_EMBEDDING_ORCHESTRATOR_BASEURL: "http://embedding_service:5001"
+      NLP_EMBEDDING_ORCHESTRATOR_BASEURL: "http://nlp_embedding_service:5003"
       MATCHING_SERVICE_BASE_URL: "http://matching_service:5002"
       ASPNETCORE_URLS: http://0.0.0.0:5000
     env_file:
@@ -45,3 +45,13 @@ services:
     environment:
       NLP_SERVICE_URL: "http://nlp_service:8000/llm/ask"
       EMBEDDING_SERVICE_URL: "http://embedding_service:5001/embed/jobs"
+
+  frontend:
+    build: ./Frontend
+    ports:
+      - "5004:5173"
+    depends_on:
+      - backend
+    environment:
+      VITE_BACKEND_API_BASE_URL: "http://localhost:5000"
+      #because its ran in the browser, it should use localhost to access the backend

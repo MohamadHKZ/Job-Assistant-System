@@ -65,7 +65,9 @@ public class ProfileController : BaseController
     {
         if (profileConfig is null) return BadRequest("ProfileInfo is required.");
         var json = JsonSerializer.Serialize(profileConfig);
-        var prompt = await System.IO.File.ReadAllTextAsync("prompts/matching_object_prompt.txt");
+        string BaseDir = Directory.GetCurrentDirectory();
+        string promptPath = Path.Combine(BaseDir, "prompts", "matching_object_prompt.txt");
+        var prompt = await System.IO.File.ReadAllTextAsync(promptPath);
         var requestString = prompt + "\n\n" + json;
         var response = await _nlpEmbeddingService.StructureAndEmbed(requestString);
         var refinedProfileConfig = response[0].MatchingObject;
@@ -115,7 +117,10 @@ public class ProfileController : BaseController
             if (sb.Length == 0)
                 return UnprocessableEntity("No extractable text found.");
 
-            string extraction_prompt = await System.IO.File.ReadAllTextAsync("prompts/profile_structuring_prompt.txt");
+            string BaseDir = Directory.GetCurrentDirectory();
+            string promptPath = Path.Combine(BaseDir, "prompts", "profile_structuring_prompt.txt");
+            string extraction_prompt = await System.IO.File.ReadAllTextAsync(promptPath);
+            Console.WriteLine("Extraction Prompt Loaded.");
             string prompt = extraction_prompt + "\n\n" + sb.ToString();
             ProfileDTO profile = _nlpService.StructureProfile(prompt);
             return Ok(profile);

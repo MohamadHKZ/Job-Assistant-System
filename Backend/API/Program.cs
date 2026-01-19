@@ -55,7 +55,7 @@ var app = builder.Build();
 app.UseExceptionMiddleware();
 app.UseCors((policyConfig) =>
 {
-    policyConfig.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:5173").AllowCredentials();
+    policyConfig.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:5173", "http://frontend:5173", "http://localhost:5004").AllowCredentials();
 });
 app.UseAuthentication();
 app.UseAuthorization();
