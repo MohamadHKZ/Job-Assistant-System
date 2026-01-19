@@ -4,13 +4,14 @@ using API.Data;
 using API.DTOs;
 using API.Entities;
 using API.Interfaces;
-using Humanizer;
 using JobAssistantSystem.Backend.API.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UglyToad.PdfPig;
 namespace API.Controllers;
 
+[Authorize]
 public class ProfileController : BaseController
 {
     private readonly ILogger<ProfileController> _logger;

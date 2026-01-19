@@ -1,12 +1,13 @@
+using API.Controllers;
 using API.Entities;
 using Backend.API.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Job_Assistant_System.API.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class JobsController(IJobsService _jobsService, IProfileService _profileService, IMatchingRankingService _matchingRankingService) : ControllerBase
+    [Authorize]
+    public class JobsController(IJobsService _jobsService, IProfileService _profileService, IMatchingRankingService _matchingRankingService) : BaseController
     {
         [HttpGet("{profileId}")]
         public async Task<ActionResult<IEnumerable<JobPostDTO>>> GetJobs(int profileId)
