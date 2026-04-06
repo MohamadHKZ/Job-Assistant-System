@@ -25,7 +25,7 @@ namespace JobAssistantSystem.API.Services
                     new SymmetricSecurityKey(Encoding.UTF8.GetBytes("super secret key super secret key")),
                     SecurityAlgorithms.HmacSha256Signature
                 ));
-            var jwtHandler = new JwtSecurityTokenHandler();
+            var jwtHandler = new JwtSecurityTokenHandler();            
             var tokenString = jwtHandler.WriteToken(token);
             return tokenString;
         }

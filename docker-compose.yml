@@ -5,8 +5,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      OPENROUTER_MODEL: "xiaomi/mimo-v2-flash:free"
+      LLM_PROVIDER: "lmstudio"
+      OPENROUTER_MODEL: "google/gemma-3-27b-it:free"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+      OPENROUTER_URL: "https://openrouter.ai/api/v1/chat/completions"
+      LM_STUDIO_URL: "http://host.docker.internal:1234/v1/chat/completions"
+      LM_STUDIO_MODEL: "local-model"
   backend:
     image: mohamad121/jobassistantsystem-backend:latest
     build: ./Backend/API
@@ -56,4 +60,20 @@ services:
       - backend
     environment:
       VITE_BACKEND_API_BASE_URL: "http://localhost:5000"
-      #because its ran in the browser, it should use localhost to access the backend
+      #because it run in the browser, it should use localhost to access the backend
+
+  job_collector_orchestrator:
+    image: mohamad121/jobassistantsystem-job_collector_orchestrator:latest
+    build: ./Job_collector_orchestrator_service
+    depends_on:
+      - nlp_embedding_service
+    environment:
+      NLP_EMBEDDING_ORCHESTRATOR_URL: "http://nlp_embedding_service:5003/nlp-embed"
+      APIFY_API_TOKEN: "${APIFY_API_TOKEN}"
+      LINKEDIN_ACTOR_ID: "${LINKEDIN_ACTOR_ID:-bebity/linkedin-jobs-scraper}"
+      LINKEDIN_ACTIVE: "${LINKEDIN_ACTIVE:-True}"
+      DATABASE_URL: "${psycopg_JobAssistantDbConnectionString}"
+      SCRAPE_TITLE: "Software Engineer"
+      SCRAPE_LOCATION: "Jordan"
+      SCRAPE_ROWS: "20"
+      SCRAPE_PUBLISHED_AT: "LAST_DAY" #LAST_DAY, LAST_WEEK, LAST_MONTH
