@@ -22,6 +22,7 @@ class Embedding_Entity(BaseModel):
     field_skills: List[str] = []
     job_title: List[str] = []
     soft_skills: List[str] = []
+    technologies: List[str] = []  # Added technologies field
 
 
 # ---------------------------------------------------------
@@ -33,7 +34,8 @@ def embed_jobs(jobs):
         "job_position_skills",
         "field_skills",
         "job_title",
-        "soft_skills"
+        "soft_skills",
+        "technologies"
     ]
 
     texts = []

@@ -1,5 +1,5 @@
 using System.Net.Http.Json;
-using API.Entities;
+using API.DTOs;
 
 namespace API.Services;
 
@@ -25,17 +25,17 @@ public class MatchingRankingService : IMatchingRankingService
     }
 
     public async Task<MatchResultDTO[]> MatchJobsAsync(
-        List<EmbeddingEntity> jobEmbeddings,
-        EmbeddingEntity profileEmbedding,
+        List<MatchingObjectDTO> jobs,
+        MatchingObjectDTO profile,
         CancellationToken cancellationToken = default)
     {
-        if (jobEmbeddings is null) throw new ArgumentNullException(nameof(jobEmbeddings));
-        if (profileEmbedding is null) throw new ArgumentNullException(nameof(profileEmbedding));
+        if (jobs is null) throw new ArgumentNullException(nameof(jobs));
+        if (profile is null) throw new ArgumentNullException(nameof(profile));
 
         var payload = new
         {
-            job_embeddings = jobEmbeddings,
-            profile_embedding = profileEmbedding
+            jobs,
+            profile
         };
 
         using var response = await _httpClient.PostAsJsonAsync("/match/jobs", payload, cancellationToken);
@@ -51,9 +51,9 @@ public class MatchingRankingService : IMatchingRankingService
         return results ?? Array.Empty<MatchResultDTO>();
     }
 
-    public async Task<List<MatchResultDTO>> Rank(EmbeddingEntity ProfileEmbedding, List<EmbeddingEntity> JobEmbeddings)
+    public async Task<List<MatchResultDTO>> Rank(MatchingObjectDTO profile, List<MatchingObjectDTO> jobs)
     {
-        var results = await MatchJobsAsync(JobEmbeddings, ProfileEmbedding);
+        var results = await MatchJobsAsync(jobs, profile);
         return results.ToList();
     }
 }

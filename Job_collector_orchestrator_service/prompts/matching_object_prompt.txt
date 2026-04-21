@@ -37,6 +37,7 @@ REQUIRED OUTPUT STRUCTURE (PER ARRAY ELEMENT)
   "job_title": [string],IMPORTANT (job_title should be array even its a single element)
   "technical_skills": [string],
   "technologies": [string],
+  "experience_level":string,
   "job_position_skills": [string],
   "field_skills": [string],
   "soft_skills": [string]
@@ -86,6 +87,11 @@ STRICT RULES:
 6) Soft Skills
 - Interpersonal, behavioral, or cognitive skills.
 - Extend briefly with professional context.
+
+7) Experience level
+- Must be exactly one of: junior, mid, or senior.
+- Use lowercase only.
+- Do not include any additional words, symbols, or formatting.
 
 GENERAL EXTRACTION RULES
 - Avoid duplication across categories.

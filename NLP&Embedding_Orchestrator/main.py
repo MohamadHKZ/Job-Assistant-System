@@ -26,6 +26,7 @@ class Embedding_Entity(BaseModel):
     field_skills: List[str] = []
     job_title: List[str] = []
     soft_skills: List[str] = []
+    technologies: List[str] = []  # Added technologies field
 
 
 # ---------------------------------------------------------
@@ -42,7 +43,7 @@ class EmbeddingCategories(BaseModel):
     field_skills: List[SkillEmbedding] = []
     job_title: List[SkillEmbedding] = []
     soft_skills: List[SkillEmbedding] = []
-
+    technologies: List[SkillEmbedding] = []
 
 class ObjectEmbeddings(BaseModel):
     id: int = 0

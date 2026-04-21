@@ -18,6 +18,9 @@ namespace API.Entities
         public List<string> SoftSkills { get; set; } = new List<string>();
         [Column(TypeName = "jsonb")]
         public List<string> JobPositionSkills { get; set; } = new List<string>();
+
+        [Column(TypeName = "jsonb")]
+        public List<string> Technologies { get; set; } = new();
         public string Experience { get; set; } = string.Empty;
         public Profile Profile { get; set; } = null!;
     }

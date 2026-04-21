@@ -24,5 +24,8 @@ public class EmbeddedJobPost
 
     [Column(TypeName = "jsonb")]
     public List<SkillEmbedding> EmbeddedSoftSkills { get; set; } = new();
+
+    [Column(TypeName = "jsonb")]
+    public List<SkillEmbedding> EmbeddedTechnologies { get; set; } = new List<SkillEmbedding>();
     public NormalizedJobPost NormalizedJobPost { get; set; } = null!;
 }

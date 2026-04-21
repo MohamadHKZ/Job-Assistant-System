@@ -1,17 +1,23 @@
+# syntax=docker/dockerfile:1.7
 FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt --timeout=300
+COPY requirements.txt ./
 
-COPY main.py .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade pip && \
+    python -m pip install -r requirements.txt --timeout=300
 
-COPY download_model.py .
+COPY download_model.py ./
 
 RUN python download_model.py
+
+COPY main.py ./
 
 EXPOSE 5001
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5001"]

@@ -20,6 +20,9 @@ public class ProfileConfigDTO
     [JsonPropertyName("soft_skills")]
     public List<string> SoftSkills { get; set; } = new();
 
+    [JsonPropertyName("technologies")]
+    public List<string> Technologies { get; set; } = new();
+
     [JsonPropertyName("experience")]
     public string Experience { get; set; } = "";
 

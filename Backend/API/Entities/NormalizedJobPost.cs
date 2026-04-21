@@ -24,5 +24,10 @@ public class NormalizedJobPost
 
     [Column(TypeName = "jsonb")]
     public List<string> RequiredSoftSkills { get; set; } = new();
+
+    [Column(TypeName = "jsonb")]
+    public List<string> Technologies { get; set; } = new();
+
+
     public JobPost JobPost { get; set; } = null!;
 }

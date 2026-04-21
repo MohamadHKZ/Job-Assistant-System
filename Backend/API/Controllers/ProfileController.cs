@@ -71,14 +71,18 @@ public class ProfileController : BaseController
         var prompt = await System.IO.File.ReadAllTextAsync(promptPath);
         var requestString = prompt + "\n\n" + json;
         var response = await _nlpEmbeddingService.StructureAndEmbed(requestString);
+
         var refinedProfileConfig = response[0].MatchingObject;
         var embedding = response[0].Embedding;
+
+        LogMatchingObjectResult(userId, profileId, refinedProfileConfig);
+
         profileConfig.JobTitle = refinedProfileConfig.JobTitle;
         profileConfig.FieldSkills = refinedProfileConfig.FieldSkills;
         profileConfig.SoftSkills = refinedProfileConfig.SoftSkills;
         profileConfig.JobPositionSkills = refinedProfileConfig.JobPositionSkills;
         profileConfig.TechnicalSkills = refinedProfileConfig.TechnicalSkills;
-        Console.WriteLine(embedding.Embeddings.JobTitle[0].Vector.Count);
+        profileConfig.Technologies = refinedProfileConfig.Technologies;
         if (profileId == 0)
         {
             var profile = await _profileService.CreateProfileAsync(profileConfig, embedding.Embeddings, userId);
@@ -88,6 +92,23 @@ public class ProfileController : BaseController
         {
             var qualifications = await _profileService.UpdateProfileAsync(profileConfig, embedding.Embeddings, profileId);
             return Ok(qualifications);
+        }
+    }
+
+    private void LogMatchingObjectResult(int userId, int profileId, object matchingObjectResult)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Matching object result generated for user {UserId}, profile {ProfileId}: {MatchingObjectResult}",
+                userId,
+                profileId,
+                JsonSerializer.Serialize(matchingObjectResult)
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log matching object result for user {UserId}, profile {ProfileId}", userId, profileId);
         }
     }
 

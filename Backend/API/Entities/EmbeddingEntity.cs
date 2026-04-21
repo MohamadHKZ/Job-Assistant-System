@@ -27,6 +27,9 @@ public class EmbeddingCategories
 
     [JsonPropertyName("soft_skills")]
     public List<SkillEmbedding> SoftSkills { get; set; } = new();
+
+    [JsonPropertyName("technologies")]
+    public List<SkillEmbedding> Technologies { get; set; } = new();
 }
 
 public class EmbeddingEntity

@@ -16,6 +16,7 @@ class ResponseEntity(BaseModel):
     id: int
     technical_skills: List[str] = []
     technologies: List[str] = []
+    experience_level: str
     job_position_skills: List[str] = []
     field_skills: List[str] = []
     job_title: List[str] = []
@@ -33,6 +34,7 @@ class EmbeddingCategories(BaseModel):
     field_skills: List[SkillEmbedding] = []
     job_title: List[SkillEmbedding] = []
     soft_skills: List[SkillEmbedding] = []
+    technologies: List[SkillEmbedding] = []
 
 
 class ObjectEmbeddings(BaseModel):
@@ -157,12 +159,13 @@ def prepare_data(jobs: list[Job], refined_data: Response):
         refined_job_posts.append({
             "JobPostId": entity.id,
             "SourceName": job.source_name,
-            "ExperienceLevelRefined": job.experience_level,
+            "ExperienceLevelRefined": Json(entity.experience_level),
             "JobTitleRefined": Json(entity.job_title),
             "RequiredFieldSkills": Json(entity.field_skills),
             "RequiredJobPositionSkills": Json(entity.job_position_skills),
             "RequiredTechnicalSkills": Json(entity.technical_skills),
             "RequiredSoftSkills": Json(entity.soft_skills),
+            "Technologies": Json(entity.technologies),
         })
 
         embeddings.append({
@@ -173,6 +176,7 @@ def prepare_data(jobs: list[Job], refined_data: Response):
             "EmbeddedJobTitle": Json([skill.model_dump() for skill in emb.job_title]),
             "EmbeddedFieldSkills": Json([skill.model_dump() for skill in emb.field_skills]),
             "EmbeddedSoftSkills": Json([skill.model_dump() for skill in emb.soft_skills]),
+            "EmbeddedTechnologies": Json([skill.model_dump() for skill in emb.technologies]),
         })
 
         for tech in entity.technologies:

@@ -74,6 +74,7 @@ class ProfileService(AppDbContext _dbContext) : IProfileService
             embeddedProfile.EmbeddedSoftSkills = embedding.SoftSkills;
             embeddedProfile.EmbeddedJobPositionSkills = embedding.JobPositionSkills;
             embeddedProfile.EmbeddedJobTitle = embedding.JobTitle;
+            embeddedProfile.EmbeddedTechnologies = embedding.Technologies;
         }
         await _dbContext.SaveChangesAsync();
         return qualifications;
@@ -89,6 +90,7 @@ class ProfileService(AppDbContext _dbContext) : IProfileService
         qualifications.SoftSkills = profileConfig.SoftSkills;
         qualifications.JobPositionSkills = profileConfig.JobPositionSkills;
         qualifications.Experience = profileConfig.Experience;
+        qualifications.Technologies = profileConfig.Technologies;
         qualifications.Profile = profile;
     }
 }

@@ -23,6 +23,8 @@ public class MatchingObject
     [JsonPropertyName("soft_skills")]
     public List<string> SoftSkills { get; set; } = new();
 
+    [JsonPropertyName("technologies")]
+    public List<string> Technologies { get; set; } = new();
     public override string ToString() =>
         JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
 }

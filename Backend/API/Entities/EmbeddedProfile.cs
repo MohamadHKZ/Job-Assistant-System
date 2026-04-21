@@ -18,7 +18,7 @@ namespace API.Entities
         [Column(TypeName = "jsonb")]
         public List<SkillEmbedding> EmbeddedSoftSkills { get; set; } = new List<SkillEmbedding>();
         [Column(TypeName = "jsonb")]
-
+        public List<SkillEmbedding> EmbeddedTechnologies { get; set; } = new List<SkillEmbedding>();
         public Profile Profile { get; set; } = null!;
     }
 }

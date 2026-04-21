@@ -6,7 +6,7 @@ class JobsService(AppDbContext _dbContext) : IJobsService
 {
     public async Task<IEnumerable<EmbeddedJobPost>> GetAllEmbeddedJobPostsAsync()
     {
-        return await _dbContext.EmbeddedJobPosts.ToListAsync();
+        return await _dbContext.EmbeddedJobPosts.Include(jp => jp.NormalizedJobPost).ThenInclude(njp => njp.JobPost).ToListAsync();
     }
     public async Task<EmbeddedJobPost?> GetFullJobPostByIdAsync(long jobId)
     {

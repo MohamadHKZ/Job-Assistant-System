@@ -1,6 +1,6 @@
-using API.Entities;
+using API.DTOs;
 
 public interface IMatchingRankingService
 {
-    Task<List<MatchResultDTO>> Rank(EmbeddingEntity ProfileEmbedding, List<EmbeddingEntity> JobEmbeddings);
+    Task<List<MatchResultDTO>> Rank(MatchingObjectDTO profile, List<MatchingObjectDTO> jobs);
 }
