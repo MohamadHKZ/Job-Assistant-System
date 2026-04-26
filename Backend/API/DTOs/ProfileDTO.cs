@@ -9,6 +9,7 @@ namespace API.Entities
         public long ProfileId { get; set; }
         public List<string> SeekedJobTitle { get; set; } = new List<string>();
         public List<string> TechnicalSkills { get; set; } = new List<string>();
+        public List<string> Technologies { get; set; } = new();
         public List<string> FieldSkills { get; set; } = new List<string>();
         public List<string> SoftSkills { get; set; } = new List<string>();
         public List<string> JobPositionSkills { get; set; } = new List<string>();

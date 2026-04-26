@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using API.Data;
 using API.DTOs;
 using API.Entities;
@@ -15,17 +14,17 @@ namespace API.Controllers;
 public class ProfileController : BaseController
 {
     private readonly ILogger<ProfileController> _logger;
-    private readonly INlpEmbeddingService _nlpEmbeddingService;
+    private readonly IEmbeddingService _embeddingService;
     private readonly INlpService _nlpService;
     private readonly IProfileService _profileService;
     private readonly AppDbContext _dbContext;
 
-    public ProfileController(AppDbContext dbContext, IProfileService profileService, ILogger<ProfileController> logger, INlpService nlpService, INlpEmbeddingService nlpEmbeddingService)
+    public ProfileController(AppDbContext dbContext, IProfileService profileService, ILogger<ProfileController> logger, INlpService nlpService, IEmbeddingService embeddingService)
     {
         _dbContext = dbContext;
         _profileService = profileService;
         _logger = logger;
-        _nlpEmbeddingService = nlpEmbeddingService;
+        _embeddingService = embeddingService;
         _nlpService = nlpService;
     }
     [HttpGet("{profileId}")]
@@ -65,24 +64,23 @@ public class ProfileController : BaseController
     public async Task<IActionResult> SaveProfile(ProfileConfigDTO profileConfig, int userId, int profileId)
     {
         if (profileConfig is null) return BadRequest("ProfileInfo is required.");
-        var json = JsonSerializer.Serialize(profileConfig);
-        string BaseDir = Directory.GetCurrentDirectory();
-        string promptPath = Path.Combine(BaseDir, "prompts", "matching_object_prompt.txt");
-        var prompt = await System.IO.File.ReadAllTextAsync(promptPath);
-        var requestString = prompt + "\n\n" + json;
-        var response = await _nlpEmbeddingService.StructureAndEmbed(requestString);
+        var matchingObject = new MatchingObject
+        {
+            Id = profileId,
+            JobTitle = profileConfig.JobTitle,
+            FieldSkills = profileConfig.FieldSkills,
+            SoftSkills = profileConfig.SoftSkills,
+            JobPositionSkills = profileConfig.JobPositionSkills,
+            TechnicalSkills = profileConfig.TechnicalSkills,
+            Technologies = profileConfig.Technologies
+        };
 
-        var refinedProfileConfig = response[0].MatchingObject;
-        var embedding = response[0].Embedding;
+        var embeddings = await _embeddingService.EmbedJobsAsync(new[] { matchingObject });
+        if (embeddings.Length == 0)
+            return UnprocessableEntity("Embedding service returned empty result.");
 
-        LogMatchingObjectResult(userId, profileId, refinedProfileConfig);
+        var embedding = embeddings[0];
 
-        profileConfig.JobTitle = refinedProfileConfig.JobTitle;
-        profileConfig.FieldSkills = refinedProfileConfig.FieldSkills;
-        profileConfig.SoftSkills = refinedProfileConfig.SoftSkills;
-        profileConfig.JobPositionSkills = refinedProfileConfig.JobPositionSkills;
-        profileConfig.TechnicalSkills = refinedProfileConfig.TechnicalSkills;
-        profileConfig.Technologies = refinedProfileConfig.Technologies;
         if (profileId == 0)
         {
             var profile = await _profileService.CreateProfileAsync(profileConfig, embedding.Embeddings, userId);
@@ -92,23 +90,6 @@ public class ProfileController : BaseController
         {
             var qualifications = await _profileService.UpdateProfileAsync(profileConfig, embedding.Embeddings, profileId);
             return Ok(qualifications);
-        }
-    }
-
-    private void LogMatchingObjectResult(int userId, int profileId, object matchingObjectResult)
-    {
-        try
-        {
-            _logger.LogInformation(
-                "Matching object result generated for user {UserId}, profile {ProfileId}: {MatchingObjectResult}",
-                userId,
-                profileId,
-                JsonSerializer.Serialize(matchingObjectResult)
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to log matching object result for user {UserId}, profile {ProfileId}", userId, profileId);
         }
     }
 

@@ -5,9 +5,8 @@ import time
 from os import getenv
 import signal
 from pathlib import Path
-from Job_collector.interfaces.provider import Provider
-from Job_collector.providers.linkedin_provider import LinkedInProvider
-from Job_collector.data_models.job_model import Job
+from Job_collector import Provider, LinkedInProvider, Job
+from Trend_analyzer import analyze_trends
 import psycopg2
 import helpers as hp
 
@@ -115,6 +114,12 @@ finally:
     if conn:
         conn.close()
     print("inserting jobs finished")
+
+try:
+    analyze_trends(getenv("DATABASE_URL"))
+    print("Trends table refreshed successfully")
+except Exception as e:
+    logging.error(f"Error occurred while refreshing trends: {e}")
 
 
 

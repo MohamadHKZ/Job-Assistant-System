@@ -15,6 +15,7 @@ const ProfileUser = ({ user, token }) => {
   const [currentCV, setCurrentCV] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [technicalSkills, setTechnicalSkills] = useState(['']);
+  const [technologies, setTechnologies] = useState(['']);
   const [jobPositionSkills, setJobPositionSkills] = useState(['']);
   const [fieldSkills, setFieldSkills] = useState(['']);
   const [softSkills, setSoftSkills] = useState(['']);
@@ -30,6 +31,7 @@ const ProfileUser = ({ user, token }) => {
     const seekedJobTitleList = dto.seekedJobTitle ?? dto.jobTitle ?? [];
 
     const technical = dto.technicalSkills ?? [];
+    const tech = dto.technologies ?? [];
     const jobPos = dto.jobPositionSkills ?? [];
     const field = dto.fieldSkills ?? [];
     const soft = dto.softSkills ?? [];
@@ -48,6 +50,7 @@ const ProfileUser = ({ user, token }) => {
     setJobTitle(title);
 
     setTechnicalSkills(Array.isArray(technical) && technical.length ? technical : ['']);
+    setTechnologies(Array.isArray(tech) && tech.length ? tech : ['']);
     setJobPositionSkills(Array.isArray(jobPos) && jobPos.length ? jobPos : ['']);
     setFieldSkills(Array.isArray(field) && field.length ? field : ['']);
     setSoftSkills(Array.isArray(soft) && soft.length ? soft : ['']);
@@ -122,6 +125,7 @@ const ProfileUser = ({ user, token }) => {
     // CV is now uploaded separately, so we don't add it here
     formData.append('seekedJobTitle', jobTitle);
     formData.append('technicalSkills', JSON.stringify(technicalSkills.filter(s => s.trim())));
+    formData.append('technologies', JSON.stringify(technologies.filter(s => s.trim())));
     formData.append('jobPositionSkills', JSON.stringify(jobPositionSkills.filter(s => s.trim())));
     formData.append('fieldSkills', JSON.stringify(fieldSkills.filter(s => s.trim())));
     formData.append('softSkills', JSON.stringify(softSkills.filter(s => s.trim())));

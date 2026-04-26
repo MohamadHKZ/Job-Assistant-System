@@ -32,9 +32,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<INlpService, NlpService>();
 builder.Services.AddScoped<INlpEmbeddingService, NlpEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
 builder.Services.AddScoped<IMatchingRankingService, MatchingRankingService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IJobsService, JobsService>();
+builder.Services.AddScoped<ITrendsService, TrendsService>();
 builder.Services.AddCors();
 builder.Services.AddAuthentication((options) =>
 {

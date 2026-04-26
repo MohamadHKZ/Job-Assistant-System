@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<JobPost> JobPosts { get; set; }
     public DbSet<EmbeddedJobPost> EmbeddedJobPosts { get; set; }
     public DbSet<NormalizedJobPost> NormalizedJobPosts { get; set; }
+    public DbSet<Trend> Trends { get; set; }
     public AppDbContext(DbContextOptions options) : base(options)
     {
 

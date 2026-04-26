@@ -32,6 +32,7 @@ REQUIRED OUTPUT STRUCTURE
   "TechnicalSkills": [string],
   "FieldSkills": [string],
   "SoftSkills": [string],  
+  "technologies":[string]
   "JobPositionSkills": [string],
   "Experience": string,
   "ReceiveNotifications": boolean
@@ -40,9 +41,35 @@ REQUIRED OUTPUT STRUCTURE
 CATEGORY RULES
 
 1) SeekedJobTitle
-- Extract job titles the candidate is seeking.
-- Keep titles exactly as written or clearly implied.
-- Do NOT expand, rewrite, or explain titles.
+- Normalize job titles into the MOST COMMON and INDUSTRY-STANDARD role names.
+- Do NOT keep rare, ambiguous, or company-specific variations.
+- Remove seniority, hype terms, and descriptors (e.g., Senior, Junior, 10x, Rockstar, Contract).
+- Remove technology-specific suffixes (e.g., .NET, Python, Flutter, React).
+- Choose the closest broad and widely used role.
+
+STRICT NORMALIZATION RULES:
+- ALWAYS map QA/Test roles to: "Quality Assurance Engineer"
+  (NEVER use "Software Test Engineer")
+- ALWAYS map frontend UI roles to: "Frontend Developer"
+- ALWAYS map backend API roles to: "Backend Developer"
+- Use "Full Stack Developer" ONLY when both frontend and backend responsibilities are clearly present
+- Use "Software Engineer" only when role is general or mixed without clear specialization
+- Normalize variations into consistent global titles:
+  e.g., ".NET Engineer", "C# Developer" → "Software Engineer"
+- Use ONLY common industry-recognized job titles:
+  - Software Engineer
+  - Backend Developer
+  - Frontend Developer
+  - Full Stack Developer
+  - Mobile Application Developer
+  - Web Developer
+  - Database Developer
+  - DevOps Engineer
+  - Systems Engineer
+  - Cloud Engineer
+  - Cybersecurity Engineer
+  - Quality Assurance Engineer
+  - Software Engineering Manager
 
 2) TechnicalSkills
 - Extract ONLY concrete technologies (languages, frameworks, tools, APIs, platforms).
@@ -77,6 +104,11 @@ Python → Python for backend data processing
 7) ReceiveNotifications
 - Extract explicitly stated preference only.
 - If not mentioned, return false.
+
+8) Technologies (STRICT NORMALIZATION)
+- Extract the SAME technologies identified in "technical_skills".
+- Convert them into clean, plain, canonical technology names only.
+- Each item MUST be a single standardized term (no descriptions).
 
 
 

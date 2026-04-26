@@ -34,10 +34,10 @@ OUTPUT REQUIREMENTS (STRICT)
 REQUIRED OUTPUT STRUCTURE (PER ARRAY ELEMENT)
 {
   "id": int,
-  "job_title": [string],IMPORTANT (job_title should be array even its a single element)
+  "job_title": [string], IMPORTANT (job_title should be array even if it is a single element),
   "technical_skills": [string],
   "technologies": [string],
-  "experience_level":string,
+  "experience_level": string,
   "job_position_skills": [string],
   "field_skills": [string],
   "soft_skills": [string]
@@ -45,10 +45,36 @@ REQUIRED OUTPUT STRUCTURE (PER ARRAY ELEMENT)
 
 CATEGORY RULES
 
-1) Job Title
-- Keep the job title exactly as written or clearly implied.
-- Do NOT expand, rewrite, or explain it.
-- One role equals one job title.
+1) Job Title (UPDATED RULE)
+- Normalize job titles into the MOST COMMON and INDUSTRY-STANDARD role names.
+- Do NOT keep rare, ambiguous, or company-specific variations.
+- Remove seniority, hype terms, and descriptors (e.g., Senior, Junior, 10x, Rockstar, Contract).
+- Remove technology-specific suffixes (e.g., .NET, Python, Flutter, React).
+- Choose the closest broad and widely used role.
+
+STRICT NORMALIZATION RULES:
+- ALWAYS map QA/Test roles to: "Quality Assurance Engineer"
+  (NEVER use "Software Test Engineer")
+- ALWAYS map frontend UI roles to: "Frontend Developer"
+- ALWAYS map backend API roles to: "Backend Developer"
+- Use "Full Stack Developer" ONLY when both frontend and backend responsibilities are clearly present
+- Use "Software Engineer" only when role is general or mixed without clear specialization
+- Normalize variations into consistent global titles:
+  e.g., ".NET Engineer", "C# Developer" → "Software Engineer"
+- Use ONLY common industry-recognized job titles:
+  - Software Engineer
+  - Backend Developer
+  - Frontend Developer
+  - Full Stack Developer
+  - Mobile Application Developer
+  - Web Developer
+  - Database Developer
+  - DevOps Engineer
+  - Systems Engineer
+  - Cloud Engineer
+  - Cybersecurity Engineer
+  - Quality Assurance Engineer
+  - Software Engineering Manager
 
 2) Technical Skills
 - Extract ONLY concrete technologies (languages, frameworks, tools, APIs, platforms).
@@ -67,12 +93,8 @@ STRICT RULES:
 - Do NOT use synonyms, aliases, or variations for the same technology.
   Example: If you choose "C#", NEVER output ".NET", "CSharp", or "Dotnet".
 - Do NOT expand technologies into ecosystems.
-  Example: Keep "C#" as "C#", NOT ".NET".
 - Normalize variations into ONE consistent format.
-  Example: "js", "Java Script" → "JavaScript"
-- Maintain global consistency within the same output.
 - No duplicates.
-- No descriptions.
 
 4) Job Position Skills
 - Core responsibilities specific to the role.
@@ -91,7 +113,6 @@ STRICT RULES:
 7) Experience level
 - Must be exactly one of: junior, mid, or senior.
 - Use lowercase only.
-- Do not include any additional words, symbols, or formatting.
 
 GENERAL EXTRACTION RULES
 - Avoid duplication across categories.

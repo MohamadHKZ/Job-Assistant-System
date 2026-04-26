@@ -6,9 +6,7 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import List
 import httpx
-from  Job_collector.Collector import JobCollector
-from Job_collector.interfaces.provider import Provider
-from Job_collector.data_models.job_model import Job
+from Job_collector import JobCollector, Provider, Job
 from psycopg2 import sql
 from psycopg2.extras import Json
 
@@ -179,10 +177,16 @@ def prepare_data(jobs: list[Job], refined_data: Response):
             "EmbeddedTechnologies": Json([skill.model_dump() for skill in emb.technologies]),
         })
 
+        primary_job_title = (
+            entity.job_title[0]
+            if entity.job_title
+            else job.job_title
+        )
         for tech in entity.technologies:
             technologies.append({
                 "SkillName": tech,
                 "DateRecorded": job.posted_date,
+                "JobTitle": primary_job_title,
             })
 
     return jobs_data, refined_job_posts, embeddings, technologies
