@@ -23,7 +23,17 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': [
+        'error',
+        {
+          // Allow PascalCase + leading-underscore identifiers (commonly used as
+          // JSX element types or destructured icon components).
+          varsIgnorePattern: '^([A-Z_]|motion|_)',
+          argsIgnorePattern: '^([A-Z_]|_)',
+          destructuredArrayIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
     },
   },
 ])

@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
-import { updateProfile, getProfile, getProfileIdForUser, uploadCV } from '../../api/profile';
+import { motion } from 'framer-motion';
+import {
+  FileText,
+  Target,
+  Wrench,
+  GraduationCap,
+  Save,
+} from 'lucide-react';
+import {
+  updateProfile,
+  getProfile,
+  getProfileIdForUser,
+  uploadCV,
+} from '../../api/profile';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Alert from '../../components/Alert';
@@ -8,8 +21,35 @@ import SkillsInput from '../../components/Skillsinput';
 import UserInfo from '../../components/Userinfo';
 import CVUpload from '../../components/Cvupload';
 
+const Section = ({ icon: Icon, title, description, children }) => (
+  <motion.section
+    initial={{ opacity: 0, y: 8 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+    className="surface rounded-2xl p-5 sm:p-6"
+  >
+    <header className="flex items-start gap-3 mb-5">
+      <div className="grid place-items-center w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+        <Icon size={18} />
+      </div>
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+          {title}
+        </h2>
+        {description && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {description}
+          </p>
+        )}
+      </div>
+    </header>
+    <div className="space-y-4">{children}</div>
+  </motion.section>
+);
+
 const ProfileUser = ({ user, token }) => {
   const [loading, setLoading] = useState(false);
+  const [cvLoading, setCvLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [, setCvFile] = useState(null);
   const [currentCV, setCurrentCV] = useState('');
@@ -27,7 +67,6 @@ const ProfileUser = ({ user, token }) => {
     if (!dto) return;
 
     const profileIdFromDto = dto.profileId ?? null;
-
     const seekedJobTitleList = dto.seekedJobTitle ?? dto.jobTitle ?? [];
 
     const technical = dto.technicalSkills ?? [];
@@ -45,8 +84,8 @@ const ProfileUser = ({ user, token }) => {
     }
 
     const title = Array.isArray(seekedJobTitleList)
-      ? (seekedJobTitleList[0] ?? '')
-      : (seekedJobTitleList ?? '');
+      ? seekedJobTitleList[0] ?? ''
+      : seekedJobTitleList ?? '';
     setJobTitle(title);
 
     setTechnicalSkills(Array.isArray(technical) && technical.length ? technical : ['']);
@@ -62,26 +101,25 @@ const ProfileUser = ({ user, token }) => {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        if(!localStorage.getItem('profileId')){
-          const profileIdForCurrentUser = await getProfileIdForUser(token, user.jobSeekerId);
-          if(profileIdForCurrentUser){
+        if (!localStorage.getItem('profileId')) {
+          const profileIdForCurrentUser = await getProfileIdForUser(
+            token,
+            user.jobSeekerId,
+          );
+          if (profileIdForCurrentUser) {
             localStorage.setItem('profileId', profileIdForCurrentUser);
           }
         }
-        const storedProfileId = localStorage.getItem('profileId');        
+        const storedProfileId = localStorage.getItem('profileId');
         if (storedProfileId && user?.jobSeekerId) {
           const profile = await getProfile(token, storedProfileId);
-
-          // Bind server profile into form (handles list/string shapes)
           bindProfileDtoToForm(profile);
-
           if (profile.cvFileName) {
             setCurrentCV(profile.cvFileName);
           }
         }
-      // eslint-disable-next-line no-unused-vars
-      } catch (err) {
-        console.log('No existing profile found');
+      } catch {
+        // No existing profile yet
       }
     };
 
@@ -99,20 +137,23 @@ const ProfileUser = ({ user, token }) => {
       return;
     }
 
-    setLoading(true);
+    setCvLoading(true);
     setMessage({ text: '', type: '' });
 
     try {
       const dto = await uploadCV(file, token);
-
-      // Bind extracted ProfileDTO to fields
       bindProfileDtoToForm(dto);
-
-      setMessage({ text: 'CV processed and fields filled.', type: 'success' });
+      setMessage({
+        text: 'CV processed and your profile fields have been filled in.',
+        type: 'success',
+      });
     } catch (err) {
-      setMessage({ text: err.message || 'Failed to upload CV', type: 'error' });
+      setMessage({
+        text: err.message || 'Failed to upload CV',
+        type: 'error',
+      });
     } finally {
-      setLoading(false);
+      setCvLoading(false);
     }
   };
 
@@ -122,25 +163,34 @@ const ProfileUser = ({ user, token }) => {
     setMessage({ text: '', type: '' });
 
     const formData = new FormData(e.target);
-    // CV is now uploaded separately, so we don't add it here
     formData.append('seekedJobTitle', jobTitle);
-    formData.append('technicalSkills', JSON.stringify(technicalSkills.filter(s => s.trim())));
-    formData.append('technologies', JSON.stringify(technologies.filter(s => s.trim())));
-    formData.append('jobPositionSkills', JSON.stringify(jobPositionSkills.filter(s => s.trim())));
-    formData.append('fieldSkills', JSON.stringify(fieldSkills.filter(s => s.trim())));
-    formData.append('softSkills', JSON.stringify(softSkills.filter(s => s.trim())));
+    formData.append(
+      'technicalSkills',
+      JSON.stringify(technicalSkills.filter((s) => s.trim())),
+    );
+    formData.append(
+      'technologies',
+      JSON.stringify(technologies.filter((s) => s.trim())),
+    );
+    formData.append(
+      'jobPositionSkills',
+      JSON.stringify(jobPositionSkills.filter((s) => s.trim())),
+    );
+    formData.append(
+      'fieldSkills',
+      JSON.stringify(fieldSkills.filter((s) => s.trim())),
+    );
+    formData.append('softSkills', JSON.stringify(softSkills.filter((s) => s.trim())));
     formData.append('experience', experience);
     formData.append('receiveNotifications', receiveNotifications);
 
     try {
       const result = await updateProfile(formData, token, user.jobSeekerId, profileId);
-
       if (!profileId && result.profileId) {
         setProfileId(result.profileId);
         localStorage.setItem('profileId', result.profileId);
       }
-      
-      setMessage({ text: 'Profile updated', type: 'success' });
+      setMessage({ text: 'Profile saved successfully.', type: 'success' });
     } catch (err) {
       setMessage({ text: err.message, type: 'error' });
     } finally {
@@ -149,73 +199,118 @@ const ProfileUser = ({ user, token }) => {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <form onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <UserInfo user={user} />
 
-      <h1 className="text-xl font-bold mb-4">Profile</h1>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            Your profile
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Keep your skills up to date for the most relevant matches.
+          </p>
+        </div>
+      </div>
 
-      <Alert message={message.text} type={message.type} />
+      <Alert message={message.text} type={message.type || 'info'} />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <CVUpload onFileSelect={handleCVSelect} currentCV={currentCV} />
-
-        <Input
-          type="text"
-          name="seekedJobTitle"
-          required
-          placeholder="Seeked Job Title"
-          value={jobTitle}
-          onChange={(e) => setJobTitle(e.target.value)}
-        />
-
-        <SkillsInput 
-          label="Technical Skills" 
-          skills={technicalSkills} 
-          setSkills={setTechnicalSkills} 
-        />
-        
-        <SkillsInput 
-          label="Job Position Skills" 
-          skills={jobPositionSkills} 
-          setSkills={setJobPositionSkills} 
-        />
-        
-        <SkillsInput 
-          label="Field Skills" 
-          skills={fieldSkills} 
-          setSkills={setFieldSkills} 
-        />
-        
-        <SkillsInput 
-          label="Soft Skills" 
-          skills={softSkills} 
-          setSkills={setSoftSkills} 
-        />
-
-        <Input
-          type="text"
-          name="experience"
-          placeholder="Experience"
-          value={experience}
-          onChange={(e) => setExperience(e.target.value)}
-        />
-
-        <Checkbox 
-          name="receiveNotifications" 
-          label="Receive job notifications"
-          checked={receiveNotifications}
-          onChange={(e) => setReceiveNotifications(e.target.checked)} 
-        />
-
-        <Button
-          type="submit"
-          disabled={loading}
-          variant="primary"
+      <div className="grid gap-5">
+        <Section
+          icon={FileText}
+          title="Your CV"
+          description="Upload a PDF and we'll extract your skills and experience automatically."
         >
-          {loading ? '...' : 'Save'}
-        </Button>
-      </form>
-    </div>
+          <CVUpload
+            onFileSelect={handleCVSelect}
+            currentCV={currentCV}
+            isProcessing={cvLoading}
+          />
+        </Section>
+
+        <Section
+          icon={Target}
+          title="Job preference"
+          description="What role are you looking for right now?"
+        >
+          <Input
+            type="text"
+            name="seekedJobTitle"
+            required
+            placeholder="e.g. Frontend Engineer, Data Analyst..."
+            label="Seeked job title"
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+          />
+        </Section>
+
+        <Section
+          icon={Wrench}
+          title="Skills"
+          description="Add your skills as chips. We'll use them to find your best matches."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <SkillsInput
+              label="Technical Skills"
+              skills={technicalSkills}
+              setSkills={setTechnicalSkills}
+              placeholder="e.g. React, TypeScript, SQL..."
+            />
+            <SkillsInput
+              label="Job Position Skills"
+              skills={jobPositionSkills}
+              setSkills={setJobPositionSkills}
+              placeholder="e.g. Code review, API design..."
+            />
+            <SkillsInput
+              label="Field Skills"
+              skills={fieldSkills}
+              setSkills={setFieldSkills}
+              placeholder="e.g. Fintech, Healthcare..."
+            />
+            <SkillsInput
+              label="Soft Skills"
+              skills={softSkills}
+              setSkills={setSoftSkills}
+              placeholder="e.g. Leadership, Communication..."
+            />
+          </div>
+        </Section>
+
+        <Section
+          icon={GraduationCap}
+          title="Experience & alerts"
+          description="A short summary of your experience and your notification preference."
+        >
+          <Input
+            type="text"
+            name="experience"
+            placeholder="e.g. 3 years building web apps with React"
+            label="Experience"
+            value={experience}
+            onChange={(e) => setExperience(e.target.value)}
+          />
+          <Checkbox
+            name="receiveNotifications"
+            label="Receive job notifications by email"
+            checked={receiveNotifications}
+            onChange={(e) => setReceiveNotifications(e.target.checked)}
+          />
+        </Section>
+      </div>
+
+      {/* Sticky save bar */}
+      <div className="sticky bottom-4 mt-6 z-30">
+        <div className="surface rounded-2xl px-4 py-3 flex items-center justify-between shadow-xl shadow-slate-900/10 dark:shadow-black/40">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Changes save to your profile and update your matches.
+          </div>
+          <Button type="submit" loading={loading} icon={Save}>
+            Save profile
+          </Button>
+        </div>
+      </div>
+    </form>
   );
 };
 
