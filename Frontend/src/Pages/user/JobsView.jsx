@@ -29,7 +29,7 @@ const JobSkeleton = () => (
 const JobsView = ({ token, user }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [activeType, setActiveType] = useState('All');
 
@@ -40,14 +40,14 @@ const JobsView = ({ token, user }) => {
     }
 
     setLoading(true);
-    setError('');
+    setError(null);
 
     try {
       const profileId = localStorage.getItem('profileId');
       const data = await getRecommendedJobs(token, profileId);
       setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message);
+      setError(err);
     } finally {
       setLoading(false);
     }

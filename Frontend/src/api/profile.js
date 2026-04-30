@@ -1,6 +1,8 @@
+import snakecaseKeys from "snakecase-keys";
+import { parseApiError } from "./apiError";
+
 const API_URL =
   import.meta.env.VITE_BACKEND_API_BASE_URL || "https://localhost:5000";
-import snakecaseKeys from "snakecase-keys";
 // Endpoint: POST api/{jobseeker_id}/profile or PUT api/{jobseeker_id}/{profile_id}/profile
 export const updateProfile = async (
   formData,
@@ -54,10 +56,7 @@ export const updateProfile = async (
     body: JSON.stringify(snakedProfileData),
   });
   console.log(snakedProfileData);
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.message || "Failed to update profile");
-  }
+  if (!response.ok) throw await parseApiError(response);
 
   return response.json();
 };
@@ -85,16 +84,7 @@ export const uploadCV = async (cvFile, token) => {
     body: cvFile, // send raw PDF bytes
   });
 
-  if (!response.ok) {
-    let msg = "Failed to upload CV";
-    try {
-      const data = await response.json();
-      msg = data.message || msg;
-    } catch {
-      // ignore json parse errors
-    }
-    throw new Error(msg);
-  }
+  if (!response.ok) throw await parseApiError(response);
   const res = await response.json();
   console.log(res);
   return res;
@@ -111,10 +101,7 @@ export const getProfile = async (token, profileId) => {
     },
   });
 
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.message || "Failed to fetch profile");
-  }
+  if (!response.ok) throw await parseApiError(response);
 
   return response.json();
 };
@@ -131,9 +118,6 @@ export const getProfileIdForUser = async (token, jobSeekerId) => {
       },
     },
   );
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.message || "Failed to fetch profile ID");
-  }
+  if (!response.ok) throw await parseApiError(response);
   return response.json();
 };

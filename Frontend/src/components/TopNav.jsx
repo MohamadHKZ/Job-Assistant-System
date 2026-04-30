@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { Briefcase, UserRound, Sparkles, TrendingUp, LogOut } from 'lucide-react';
+import { UserRound, Sparkles, TrendingUp, LogOut } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import Brand from './Brand';
 
 const NAV_ITEMS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
@@ -14,19 +15,10 @@ const TopNav = ({ currentView, setCurrentView, onLogout, user }) => {
       <div className="surface border-b">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
           {/* Brand */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-400 grid place-items-center shadow-lg shadow-emerald-500/20">
-              <Briefcase size={18} className="text-slate-900" />
-            </div>
-            <div className="leading-tight">
-              <div className="font-bold tracking-tight text-slate-900 dark:text-slate-50">
-                Job<span className="text-gradient-brand">Match</span>
-              </div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                AI Job Assistant
-              </div>
-            </div>
-          </div>
+          <Brand
+            size="md"
+            nameClassName="text-slate-900 dark:text-slate-50"
+          />
 
           {/* Nav items */}
           <nav className="hidden md:flex items-center gap-1 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur">

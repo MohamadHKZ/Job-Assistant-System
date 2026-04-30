@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Briefcase,
   Sparkles,
   TrendingUp,
   ShieldCheck,
@@ -15,6 +14,8 @@ import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Alert from '../../components/Alert';
 import ThemeToggle from '../../components/ThemeToggle';
+import Brand from '../../components/Brand';
+import { BRAND_FOOTER } from '../../constants/brand';
 
 const TABS = [
   { id: 'login', label: 'Sign In' },
@@ -42,14 +43,14 @@ const FEATURES = [
 const ProfileAuth = ({ onAuthSuccess }) => {
   const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const isLogin = activeTab === 'login';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
     setLoading(true);
 
     const formData = new FormData(e.target);
@@ -70,7 +71,7 @@ const ProfileAuth = ({ onAuthSuccess }) => {
         jobSeekerId: data.jobSeekerId,
       });
     } catch (err) {
-      setError(err.message);
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -83,19 +84,11 @@ const ProfileAuth = ({ onAuthSuccess }) => {
         <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-emerald-500/20 blur-3xl" />
         <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-cyan-500/20 blur-3xl" />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 grid place-items-center shadow-xl shadow-emerald-500/30">
-            <Briefcase size={20} className="text-slate-900" />
-          </div>
-          <div>
-            <div className="text-xl font-bold tracking-tight">
-              Job<span className="text-gradient-brand">Match</span>
-            </div>
-            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-              AI Job Assistant
-            </div>
-          </div>
-        </div>
+        <Brand
+          size="lg"
+          className="relative z-10"
+          taglineClassName="!text-slate-400"
+        />
 
         <div className="relative z-10 max-w-md">
           <h1 className="text-4xl font-bold leading-tight tracking-tight">
@@ -128,7 +121,7 @@ const ProfileAuth = ({ onAuthSuccess }) => {
         </div>
 
         <div className="relative z-10 text-xs text-slate-500">
-          (c) {new Date().getFullYear()} JobMatch. Built for graduates and pros.
+          {BRAND_FOOTER}
         </div>
       </div>
 
@@ -138,14 +131,12 @@ const ProfileAuth = ({ onAuthSuccess }) => {
           <ThemeToggle />
         </div>
 
-        <div className="lg:hidden flex items-center gap-2 mb-8">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-400 grid place-items-center">
-            <Briefcase size={16} className="text-slate-900" />
-          </div>
-          <div className="font-bold tracking-tight text-slate-900 dark:text-slate-50">
-            Job<span className="text-gradient-brand">Match</span>
-          </div>
-        </div>
+        <Brand
+          size="sm"
+          showTagline={false}
+          className="lg:hidden mb-8"
+          nameClassName="text-slate-900 dark:text-slate-50"
+        />
 
         <div className="w-full max-w-md mx-auto">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
@@ -167,7 +158,7 @@ const ProfileAuth = ({ onAuthSuccess }) => {
                   type="button"
                   onClick={() => {
                     setActiveTab(tab.id);
-                    setError('');
+                    setError(null);
                   }}
                   className={`relative py-2.5 rounded-xl text-sm font-medium transition-colors focus-ring ${
                     active
@@ -238,7 +229,7 @@ const ProfileAuth = ({ onAuthSuccess }) => {
               type="button"
               onClick={() => {
                 setActiveTab(isLogin ? 'signup' : 'login');
-                setError('');
+                setError(null);
               }}
               className="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
             >

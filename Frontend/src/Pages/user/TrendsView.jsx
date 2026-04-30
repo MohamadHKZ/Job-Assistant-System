@@ -93,14 +93,14 @@ const TrendsView = ({ token }) => {
 
   const [trends, setTrends] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [period, setPeriod] = useState('month');
   const [selectedTitle, setSelectedTitle] = useState(null);
   const [search, setSearch] = useState('');
 
   const fetchTrends = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     try {
       const data = await getTrends(token);
       const arr = Array.isArray(data) ? data : [];
@@ -109,7 +109,7 @@ const TrendsView = ({ token }) => {
         setSelectedTitle(arr[0].jobTitle);
       }
     } catch (err) {
-      setError(err.message);
+      setError(err);
     } finally {
       setLoading(false);
     }

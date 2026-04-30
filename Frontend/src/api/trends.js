@@ -1,3 +1,5 @@
+import { parseApiError } from './apiError';
+
 const API_URL =
   import.meta.env.VITE_BACKEND_API_BASE_URL || 'https://localhost:5000';
 
@@ -11,16 +13,6 @@ export const getTrends = async (token) => {
     headers,
   });
 
-  if (!response.ok) {
-    let msg = 'Failed to fetch trends';
-    try {
-      const data = await response.json();
-      msg = data.message || msg;
-    } catch {
-      // ignore
-    }
-    throw new Error(msg);
-  }
-
+  if (!response.ok) throw await parseApiError(response);
   return response.json();
 };

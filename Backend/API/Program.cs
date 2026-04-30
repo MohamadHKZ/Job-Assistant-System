@@ -1,22 +1,64 @@
+using System.Diagnostics;
 using System.Text;
 using API.Data;
 using API.Interfaces;
 using API.Services;
+using JobAssistantSystem.API.Errors;
 using JobAssistantSystem.API.Interfaces;
-using JobAssistantSystem.API.Middleware;
 using JobAssistantSystem.API.Services;
 using JobAssistantSystem.Backend.API.Interfaces;
 using JobAssistantSystem.Backend.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddProblemDetails(options =>
+{
+    // Inject traceId + instance into every ProblemDetails response so the
+    // shape is identical for validation errors, business errors, and 500s.
+    options.CustomizeProblemDetails = ctx =>
+    {
+        ctx.ProblemDetails.Instance ??= ctx.HttpContext.Request.Path;
+        ctx.ProblemDetails.Extensions["traceId"] =
+            Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
+    };
+});
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 builder.Services.AddControllers().AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+
+// Make DTO validation responses go through the ProblemDetails pipeline so they
+// also include traceId/instance and match the shape of every other error.
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problemDetailsFactory = context.HttpContext.RequestServices
+            .GetRequiredService<ProblemDetailsFactory>();
+
+        var problem = problemDetailsFactory.CreateValidationProblemDetails(
+            context.HttpContext,
+            context.ModelState,
+            statusCode: StatusCodes.Status400BadRequest);
+
+        problem.Instance ??= context.HttpContext.Request.Path;
+        problem.Extensions["traceId"] =
+            Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+
+        return new BadRequestObjectResult(problem)
+        {
+            ContentTypes = { "application/problem+json" }
+        };
+    };
+});
 builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -54,7 +96,8 @@ builder.Services.AddAuthentication((options) =>
     };
 });
 var app = builder.Build();
-app.UseExceptionMiddleware();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.UseCors((policyConfig) =>
 {
     policyConfig.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:5173", "http://frontend:5173", "http://localhost:5004").AllowCredentials();

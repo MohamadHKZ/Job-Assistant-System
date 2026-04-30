@@ -149,7 +149,7 @@ const ProfileUser = ({ user, token }) => {
       });
     } catch (err) {
       setMessage({
-        text: err.message || 'Failed to upload CV',
+        text: err || 'Failed to upload CV',
         type: 'error',
       });
     } finally {
@@ -192,7 +192,7 @@ const ProfileUser = ({ user, token }) => {
       }
       setMessage({ text: 'Profile saved successfully.', type: 'success' });
     } catch (err) {
-      setMessage({ text: err.message, type: 'error' });
+      setMessage({ text: err, type: 'error' });
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@ using API.Data;
 using API.DTOs;
 using API.Entities;
 using API.Interfaces;
+using JobAssistantSystem.API.Errors;
 using JobAssistantSystem.Backend.API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,7 +37,7 @@ public class ProfileController : BaseController
 
         var profileQualifications = profile?.ProfileQualifications;
         if (profileQualifications == null || profile == null)
-            return NotFound("Profile not found");
+            throw new ProfileNotFoundException(profileId);
         ProfileDTO profileDTO = new ProfileDTO
         {
             ProfileId = profileQualifications.ProfileId,
@@ -55,7 +56,7 @@ public class ProfileController : BaseController
     {
         var profileId = await _profileService.GetProfileIdByUserIdAsync(userId);
         if (profileId == null)
-            return NotFound("Profile not found");
+            throw new ProfileNotFoundException(userId);
         return Ok(profileId);
     }
 
@@ -63,7 +64,8 @@ public class ProfileController : BaseController
     [HttpPut("{profileId}/update")]
     public async Task<IActionResult> SaveProfile(ProfileConfigDTO profileConfig, int userId, int profileId)
     {
-        if (profileConfig is null) return BadRequest("ProfileInfo is required.");
+        // Null body is already handled by [ApiController] model binding which
+        // returns a 400 ValidationProblemDetails — no need to check here.
         var matchingObject = new MatchingObject
         {
             Id = profileId,
@@ -77,7 +79,7 @@ public class ProfileController : BaseController
 
         var embeddings = await _embeddingService.EmbedJobsAsync(new[] { matchingObject });
         if (embeddings.Length == 0)
-            return UnprocessableEntity("Embedding service returned empty result.");
+            throw new UpstreamServiceException("Embedding service returned empty result.");
 
         var embedding = embeddings[0];
 
@@ -100,39 +102,42 @@ public class ProfileController : BaseController
     public async Task<ActionResult<ProfileDTO>> ExtractInfoFromPdf()
     {
         if (Request.Body == null || !Request.Body.CanRead)
-            return BadRequest("Invalid or empty request body.");
+            return this.ProblemFor(
+                typeSlug: "invalid-pdf-body",
+                title: "Invalid or empty request body",
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: "The request did not contain a readable PDF body.");
 
-        try
+        await using var memoryStream = new MemoryStream();
+        await Request.Body.CopyToAsync(memoryStream);
+        memoryStream.Position = 0;
+
+        // PdfPig throws if the stream isn't a valid PDF; the global handler
+        // will translate that to a 500 ProblemDetails. We surface a friendlier
+        // 422 only for the "no extractable text" case below.
+        using var document = PdfDocument.Open(memoryStream);
+
+        var sb = new StringBuilder();
+        foreach (var page in document.GetPages())
         {
-            await using var memoryStream = new MemoryStream();
-            await Request.Body.CopyToAsync(memoryStream);
-            memoryStream.Position = 0;
-
-            using var document = PdfDocument.Open(memoryStream);
-
-            var sb = new StringBuilder();
-            foreach (var page in document.GetPages())
-            {
-                if (!string.IsNullOrWhiteSpace(page.Text))
-                    sb.AppendLine(page.Text);
-            }
-
-            if (sb.Length == 0)
-                return UnprocessableEntity("No extractable text found.");
-
-            string BaseDir = Directory.GetCurrentDirectory();
-            string promptPath = Path.Combine(BaseDir, "prompts", "profile_structuring_prompt.txt");
-            string extraction_prompt = await System.IO.File.ReadAllTextAsync(promptPath);
-            Console.WriteLine("Extraction Prompt Loaded.");
-            string prompt = extraction_prompt + "\n\n" + sb.ToString();
-            ProfileDTO profile = _nlpService.StructureProfile(prompt);
-            return Ok(profile);
+            if (!string.IsNullOrWhiteSpace(page.Text))
+                sb.AppendLine(page.Text);
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, ex.Message);
-            return UnprocessableEntity("Could not read/extract text from the provided PDF.");
-        }
+
+        if (sb.Length == 0)
+            return this.ProblemFor(
+                typeSlug: "pdf-not-extractable",
+                title: "No extractable text found",
+                statusCode: StatusCodes.Status422UnprocessableEntity,
+                detail: "The provided PDF did not contain any extractable text.");
+
+        string BaseDir = Directory.GetCurrentDirectory();
+        string promptPath = Path.Combine(BaseDir, "prompts", "profile_structuring_prompt.txt");
+        string extraction_prompt = await System.IO.File.ReadAllTextAsync(promptPath);
+        _logger.LogInformation("Extraction prompt loaded.");
+        string prompt = extraction_prompt + "\n\n" + sb.ToString();
+        ProfileDTO profile = _nlpService.StructureProfile(prompt);
+        return Ok(profile);
     }
 
 }
