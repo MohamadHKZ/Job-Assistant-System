@@ -67,11 +67,6 @@ namespace JobAssistantSystem.API.Errors
 
             httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
 
-            // traceId/instance are also injected by AddProblemDetails customization,
-            // but we set them defensively here so the handler is self-contained.
-            problem.Instance ??= httpContext.Request.Path;
-            problem.Extensions["traceId"] = Activity.Current?.Id ?? httpContext.TraceIdentifier;
-
             return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
             {
                 HttpContext = httpContext,

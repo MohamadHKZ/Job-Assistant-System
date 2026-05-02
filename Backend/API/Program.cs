@@ -35,30 +35,6 @@ builder.Services.AddControllers().AddJsonOptions(options =>
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
-// Make DTO validation responses go through the ProblemDetails pipeline so they
-// also include traceId/instance and match the shape of every other error.
-builder.Services.Configure<ApiBehaviorOptions>(options =>
-{
-    options.InvalidModelStateResponseFactory = context =>
-    {
-        var problemDetailsFactory = context.HttpContext.RequestServices
-            .GetRequiredService<ProblemDetailsFactory>();
-
-        var problem = problemDetailsFactory.CreateValidationProblemDetails(
-            context.HttpContext,
-            context.ModelState,
-            statusCode: StatusCodes.Status400BadRequest);
-
-        problem.Instance ??= context.HttpContext.Request.Path;
-        problem.Extensions["traceId"] =
-            Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
-
-        return new BadRequestObjectResult(problem)
-        {
-            ContentTypes = { "application/problem+json" }
-        };
-    };
-});
 builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
