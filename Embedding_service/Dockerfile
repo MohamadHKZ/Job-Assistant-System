@@ -15,7 +15,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY download_model.py ./
 
-RUN python download_model.py
+RUN --mount=type=cache,target=/root/.cache/huggingface/hub \
+    python download_model.py
 
 COPY main.py ./
 
