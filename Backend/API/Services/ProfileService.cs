@@ -1,10 +1,11 @@
-using System.Formats.Asn1;
 using API.Data;
 using API.DTOs;
 using API.Entities;
+using JobAssistantSystem.API.Errors;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
-class ProfileService(AppDbContext _dbContext) : IProfileService
+class ProfileService(AppDbContext _dbContext, ILogger<ProfileService> _logger) : IProfileService
 {
     public async Task<Profile> CreateProfileAsync(ProfileConfigDTO profileConfig, EmbeddingCategories embedding, int userId)
     {
@@ -59,11 +60,17 @@ class ProfileService(AppDbContext _dbContext) : IProfileService
             .Include(p => p.ProfileQualifications)
             .FirstOrDefaultAsync(p => p.ProfileId == profileId);
         if (profile == null)
-            throw new Exception("Profile not found");
+        {
+            _logger.LogWarning("UpdateProfile: profile {ProfileId} not found", profileId);
+            throw new ProfileNotFoundException(profileId);
+        }
 
         var qualifications = profile.ProfileQualifications;
         if (qualifications == null)
-            throw new Exception("Profile qualifications not found");
+        {
+            _logger.LogWarning("UpdateProfile: qualifications missing for profile {ProfileId}", profileId);
+            throw new ProfileNotFoundException(profileId);
+        }
         ProfileConfigToProfileAndQualifications(profileConfig, profile, qualifications);
         var embeddedProfile = await _dbContext.EmbeddedProfiles
             .FirstOrDefaultAsync(e => e.ProfileId == profileId);

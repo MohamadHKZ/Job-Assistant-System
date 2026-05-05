@@ -199,5 +199,9 @@ def analyze_trends(database_url: str) -> None:
 if __name__ == "__main__":
     from os import getenv
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    if not logging.root.handlers:
+        logging.basicConfig(
+            level=getenv("LOG_LEVEL", "INFO").upper(),
+            format="%(asctime)s [%(levelname)s] %(message)s",
+        )
     analyze_trends(getenv("DATABASE_URL"))

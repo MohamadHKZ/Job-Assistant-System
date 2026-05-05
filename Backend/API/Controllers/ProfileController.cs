@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using API.Data;
 using API.DTOs;
 using API.Entities;
@@ -8,6 +9,7 @@ using JobAssistantSystem.Backend.API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using UglyToad.PdfPig;
 namespace API.Controllers;
 
@@ -86,11 +88,13 @@ public class ProfileController : BaseController
         if (profileId == 0)
         {
             var profile = await _profileService.CreateProfileAsync(profileConfig, embedding.Embeddings, userId);
+            _logger.LogInformation("Profile {ProfileId} created for user {UserId}", profile.ProfileId, userId);
             return Ok(profile);
         }
         else
         {
             var qualifications = await _profileService.UpdateProfileAsync(profileConfig, embedding.Embeddings, profileId);
+            _logger.LogInformation("Profile {ProfileId} updated for user {UserId}", profileId, userId);
             return Ok(qualifications);
         }
     }
@@ -134,9 +138,22 @@ public class ProfileController : BaseController
         string BaseDir = Directory.GetCurrentDirectory();
         string promptPath = Path.Combine(BaseDir, "prompts", "profile_structuring_prompt.txt");
         string extraction_prompt = await System.IO.File.ReadAllTextAsync(promptPath);
-        _logger.LogInformation("Extraction prompt loaded.");
+        _logger.LogDebug(
+            "Extraction prompt loaded: {PromptBytes} bytes, {PageCount} pages",
+            extraction_prompt.Length,
+            document.NumberOfPages);
         string prompt = extraction_prompt + "\n\n" + sb.ToString();
         ProfileDTO profile = _nlpService.StructureProfile(prompt);
+        _logger.LogInformation(
+            "Extracted profile from CV: {PageCount} pages, {CharCount} chars",
+            document.NumberOfPages,
+            sb.Length);
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            var text = sb.ToString();
+            var preview = text.Length > 500 ? text[..500] + "..." : text;
+            _logger.LogDebug("CV extracted text preview: {Preview}", preview);
+        }
         return Ok(profile);
     }
 

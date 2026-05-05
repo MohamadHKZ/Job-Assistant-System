@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -37,11 +37,15 @@ namespace JobAssistantSystem.API.Errors
         {
             ProblemDetails problem;
 
+            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+            var query = httpContext.Request.QueryString.HasValue ? httpContext.Request.QueryString.Value! : string.Empty;
+
             if (exception is DomainException domain)
             {
                 _logger.LogInformation(
-                    "Domain exception handled: {ExceptionType} -> {Status} {Title}",
-                    domain.GetType().Name, domain.StatusCode, domain.Title);
+                    "Domain exception handled: {ExceptionType} -> {Status} {Title} on {Method} {Path}{Query} for user {UserId}",
+                    domain.GetType().Name, domain.StatusCode, domain.Title,
+                    httpContext.Request.Method, httpContext.Request.Path, query, userId);
 
                 problem = new ProblemDetails
                 {
@@ -53,8 +57,13 @@ namespace JobAssistantSystem.API.Errors
             }
             else
             {
-                _logger.LogError(exception, "Unhandled exception while processing request {Path}",
-                    httpContext.Request.Path);
+                _logger.LogError(exception,
+                    "Unhandled exception {ExceptionType} on {Method} {Path}{Query} for user {UserId}",
+                    exception.GetType().Name,
+                    httpContext.Request.Method,
+                    httpContext.Request.Path,
+                    query,
+                    userId);
 
                 problem = new ProblemDetails
                 {

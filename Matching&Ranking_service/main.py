@@ -1,13 +1,57 @@
+import logging
+import os
+import time
+import uuid
+from contextvars import ContextVar
+from typing import List, Optional, Tuple
+
+import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Optional, Tuple
-import numpy as np
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
+# ---------------------------------------------------------------------------
+# Logging (P0 + trace id in format)
+# ---------------------------------------------------------------------------
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="-")
+
+
+class _TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.trace_id = trace_id_ctx.get("-")
+        return True
+
+
+class TraceIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        tid = request.headers.get("x-trace-id") or uuid.uuid4().hex[:16]
+        token = trace_id_ctx.set(tid)
+        try:
+            response = await call_next(request)
+        finally:
+            trace_id_ctx.reset(token)
+        response.headers["X-Trace-Id"] = tid
+        return response
+
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s [%(levelname)s] [trace=%(trace_id)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+# Child loggers do not run the root logger's filters; attach to handlers so format sees trace_id.
+_trace_id_filter = _TraceIdFilter()
+for _handler in logging.root.handlers:
+    _handler.addFilter(_trace_id_filter)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------
 app = FastAPI(title="Job Matching Service")
+app.add_middleware(TraceIdMiddleware)
 
 
 class SkillEmbedding(BaseModel):
@@ -42,41 +86,31 @@ class MatchRequest(BaseModel):
 # ---------------------------------------------------------
 EXPERIENCE_SCORES = {
     ("junior", "junior"): 1.00,
-    ("mid",    "mid"):    1.00,
+    ("mid", "mid"): 1.00,
     ("associate", "associate"): 1.00,
     ("senior", "senior"): 1.00,
-
-    ("junior", "mid"):    0.65,
+    ("junior", "mid"): 0.65,
     ("junior", "associate"): 0.65,
-    ("mid",    "junior"): 0.60,
-    ("associate",    "junior"): 0.65,
-
-    ("mid",    "senior"): 0.70,
+    ("mid", "junior"): 0.60,
+    ("associate", "junior"): 0.65,
+    ("mid", "senior"): 0.70,
     ("associate", "senior"): 0.70,
-    ("senior", "mid"):    0.80,
+    ("senior", "mid"): 0.80,
     ("senior", "associate"): 0.80,
-
     ("junior", "senior"): 0.40,
     ("senior", "junior"): 0.70,
 }
 
-
-# ---------------------------------------------------------
-# Weights
-# ---------------------------------------------------------
 weights = {
-    "technologies":        0.50,
+    "technologies": 0.50,
     "job_position_skills": 0.25,
-    "experience":          0.25,
+    "experience": 0.25,
 }
 
 MATCH_THRESHOLD = 0.65
 TECHNOLOGY_COSINE_MIN_SIMILARITY = 0.80
 
 
-# ---------------------------------------------------------
-# Cosine similarity
-# ---------------------------------------------------------
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
@@ -89,16 +123,18 @@ def normalize_experience_level(level: str) -> str:
     return level.strip().lower()
 
 
-def print_matching_header(title: str, weight: float) -> None:
-    print("\n=====================================")
-    print(f" {title} (weight = {weight})")
-    print("=====================================")
+def log_matching_header(title: str, weight: float) -> None:
+    logger.debug("===== %s (weight=%s) =====", title, weight)
 
 
 def find_exact_substring_match(cv_items: List[SkillEmbedding], job_skill_lower: str) -> Optional[str]:
     for cv_item in cv_items:
         cv_tech_lower = cv_item.skill.lower()
-        print(f"   Checking exact match: CV Tech '{cv_item.skill}' vs Job Tech '{job_skill_lower}'")
+        logger.debug(
+            "Checking exact match: CV Tech %r vs Job Tech %r",
+            cv_item.skill,
+            job_skill_lower,
+        )
         if cv_tech_lower in job_skill_lower or job_skill_lower in cv_tech_lower:
             return cv_item.skill
     return None
@@ -115,7 +151,7 @@ def best_cosine_similarity_for_job_item(
     for cv_item in cv_items:
         cv_vec = np.array(cv_item.vector)
         sim = cosine_similarity(cv_vec, job_vec)
-        print(f"   {cv_item_label}: '{cv_item.skill}' → similarity = {sim:.4f}")
+        logger.debug("%s: %r similarity=%.4f", cv_item_label, cv_item.skill, sim)
         if sim > best_similarity:
             best_similarity = sim
             best_cv_skill = cv_item.skill
@@ -123,27 +159,18 @@ def best_cosine_similarity_for_job_item(
     return best_similarity, best_cv_skill
 
 
-# ---------------------------------------------------------
-# Experience matcher
-# ---------------------------------------------------------
 def match_experience(cv_level: str, job_level: str, weight: float) -> float:
-    cv_level  = normalize_experience_level(cv_level)
+    cv_level = normalize_experience_level(cv_level)
     job_level = normalize_experience_level(job_level)
-    ratio     = EXPERIENCE_SCORES.get((cv_level, job_level), 0.0)
-    score     = ratio * weight
+    ratio = EXPERIENCE_SCORES.get((cv_level, job_level), 0.0)
+    score = ratio * weight
 
-    print_matching_header("EXPERIENCE MATCHING", weight)
-    print(f"   CV  level  : {cv_level}")
-    print(f"   Job level  : {job_level}")
-    print(f"   Match ratio: {ratio:.2f}")
-    print(f"   Score      : {score:.4f}")
+    log_matching_header("EXPERIENCE MATCHING", weight)
+    logger.debug("CV level=%r job level=%r ratio=%.2f score=%.4f", cv_level, job_level, ratio, score)
 
     return score
 
 
-# ---------------------------------------------------------
-# Technologies matcher (exact-match-first, cosine fallback)
-# ---------------------------------------------------------
 def array_match_technologies(
     cv_items: List[SkillEmbedding],
     job_items: List[SkillEmbedding],
@@ -152,27 +179,27 @@ def array_match_technologies(
     if len(job_items) == 0:
         return weight
 
-    n                   = len(job_items)
+    n = len(job_items)
     per_job_item_weight = weight / n
-    total               = 0.0
+    total = 0.0
 
-    print_matching_header("TECHNOLOGIES MATCHING", weight)
+    log_matching_header("TECHNOLOGIES MATCHING", weight)
 
     for job_item in job_items:
-        job_skill      = job_item.skill
+        job_skill = job_item.skill
         job_tech_lower = job_skill.lower()
-        job_vec        = np.array(job_item.vector)
+        job_vec = np.array(job_item.vector)
 
-        print(f"\n▶ Job Tech: '{job_skill}'")
+        logger.debug("Job Tech: %r", job_skill)
 
         exact_match = find_exact_substring_match(cv_items, job_tech_lower)
 
         if exact_match:
             best_similarity = 1.0
             best_cv_tech = exact_match
-            print(f"   ✅ Exact match → '{exact_match}' → similarity = 1.0000")
+            logger.debug("Exact match -> %r similarity=1.0", exact_match)
         else:
-            print(f"   (No exact match — falling back to cosine similarity)")
+            logger.debug("No exact match, falling back to cosine similarity")
 
             best_similarity, best_cv_tech = best_cosine_similarity_for_job_item(
                 cv_items,
@@ -183,7 +210,7 @@ def array_match_technologies(
             if best_similarity < TECHNOLOGY_COSINE_MIN_SIMILARITY:
                 best_similarity = 0.0
 
-            print(f"   ✔ Best result: '{best_cv_tech}' ({best_similarity:.4f})")
+            logger.debug("Best cosine result: %r %.4f", best_cv_tech, best_similarity)
 
         if best_similarity >= MATCH_THRESHOLD:
             total += per_job_item_weight * best_similarity
@@ -192,9 +219,6 @@ def array_match_technologies(
     return total
 
 
-# ---------------------------------------------------------
-# Generic N×M matcher (job_position_skills, field_skills, etc.)
-# ---------------------------------------------------------
 def array_match(
     cv_items: List[SkillEmbedding],
     job_items: List[SkillEmbedding],
@@ -203,17 +227,17 @@ def array_match(
     if len(job_items) == 0:
         return weight
 
-    n                   = len(job_items)
+    n = len(job_items)
     per_job_item_weight = weight / n
-    total               = 0.0
+    total = 0.0
 
-    print_matching_header("CATEGORY MATCHING", weight)
+    log_matching_header("CATEGORY MATCHING", weight)
 
     for job_item in job_items:
-        job_skill       = job_item.skill
-        job_vec         = np.array(job_item.vector)
+        job_skill = job_item.skill
+        job_vec = np.array(job_item.vector)
 
-        print(f"\n▶ Job Item: '{job_skill}'")
+        logger.debug("Job item: %r", job_skill)
 
         best_similarity, best_cv_skill = best_cosine_similarity_for_job_item(
             cv_items,
@@ -221,7 +245,7 @@ def array_match(
             "CV Item",
         )
 
-        print(f"   ✔ Best match: '{best_cv_skill}' ({best_similarity:.4f})")
+        logger.debug("Best match: %r %.4f", best_cv_skill, best_similarity)
 
         if best_similarity >= MATCH_THRESHOLD:
             total += per_job_item_weight * best_similarity
@@ -253,53 +277,46 @@ def score_category(
     )
 
 
-# ---------------------------------------------------------
-# Label helper
-# ---------------------------------------------------------
 def match_label(score: float) -> str:
     if score >= 80:
         return "Strong Candidate"
-    elif score >= 60:
+    if score >= 60:
         return "Good Match"
-    elif score >= 40:
+    if score >= 40:
         return "Moderate Match"
-    else:
-        return "Weak Match"
+    return "Weak Match"
 
 
-# ---------------------------------------------------------
-# Score a single job against the profile
-# ---------------------------------------------------------
 def score_job(profile: MatchingEntity, job: MatchingEntity, job_index: int) -> dict:
-    print(f"\n\n{'#'*50}")
-    print(f"#  EVALUATING JOB #{job_index + 1}: {job.title}")
-    print(f"{'#'*50}")
+    logger.debug("##### EVALUATING JOB #%s: %s #####", job_index + 1, job.title)
 
     final_score = 0.0
-    breakdown   = {}
+    breakdown = {}
 
     for category, weight in weights.items():
         contribution = score_category(profile, job, category, weight)
 
-        print(f"\nCategory : {category}")
-        print(f"  Weight       : {weight * 100:.0f}%")
-        print(f"  Contribution : {contribution:.4f}  ({contribution * 100:.2f}%)")
+        logger.debug(
+            "Category=%s weight=%.0f%% contribution=%.4f (%.2f%%)",
+            category,
+            weight * 100,
+            contribution,
+            contribution * 100,
+        )
 
-        final_score         += contribution
-        breakdown[category]  = round(contribution * 100, 2)
+        final_score += contribution
+        breakdown[category] = round(contribution * 100, 2)
 
     final_pct = round(final_score * 100, 2)
 
-    print(f"\n{'=' * 50}")
-    print(f"  FINAL SCORE: {final_pct:.2f}%  →  {match_label(final_pct)}")
-    print(f"{'=' * 50}")
+    logger.debug("FINAL SCORE: %.2f%% -> %s", final_pct, match_label(final_pct))
 
     return {
-        "id":               job.id,
-        "title":            job.title,
+        "id": job.id,
+        "title": job.title,
         "match_percentage": final_pct,
-        "breakdown":        breakdown,
-        "label":            match_label(final_pct),
+        "breakdown": breakdown,
+        "label": match_label(final_pct),
     }
 
 
@@ -309,50 +326,48 @@ def entity_without_embeddings(entity: MatchingEntity) -> dict:
     return entity.dict(exclude={"embeddings"})
 
 
-# ---------------------------------------------------------
-# Match profile against all jobs
-# ---------------------------------------------------------
 def match_profile_to_jobs(jobs: List[MatchingEntity], profile: MatchingEntity) -> List[dict]:
+    t0 = time.perf_counter()
     results = []
 
     for i, job in enumerate(jobs):
-        print(f"\n\n{'~' * 65}")
-        print(f" MATCH ITERATION #{i + 1}")
-        print(f"{'~' * 65}")
-        print("Profile object (without embeddings):")
-        print(entity_without_embeddings(profile))
-        print("Job object (without embeddings):")
-        print(entity_without_embeddings(job))
+        logger.debug("--- MATCH ITERATION #%s ---", i + 1)
+        logger.debug("Profile (no embeddings): %s", entity_without_embeddings(profile))
+        logger.debug("Job (no embeddings): %s", entity_without_embeddings(job))
 
         result = score_job(profile, job, i)
         results.append(result)
 
     results_sorted = sorted(results, key=lambda x: x["match_percentage"], reverse=True)
 
-    print("\n\n")
-    print("=" * 65)
-    print("              MATCH SUMMARY  (sorted best → worst)         ")
-    print("=" * 65)
-    print(f"{'Rank':<5} {'Job Title':<30} {'Score':>7}  Label")
-    print("-" * 65)
-
+    logger.debug("===== MATCH SUMMARY (sorted) =====")
     for rank, r in enumerate(results_sorted, start=1):
-        print(
-            f"{rank:<5} {r['title']:<30} {r['match_percentage']:>6.2f}%"
-            f"  {r['label']}"
+        logger.debug(
+            "rank=%s title=%r score=%.2f%% label=%s",
+            rank,
+            r["title"],
+            r["match_percentage"],
+            r["label"],
         )
 
-    print("=" * 65)
     if results_sorted:
         best = results_sorted[0]
-        print(f"\nBest match: {best['title']} ({best['match_percentage']:.2f}%)")
+        logger.debug("Best match: %s (%.2f%%)", best["title"], best["match_percentage"])
+
+    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+    top = results_sorted[0] if results_sorted else None
+    logger.info(
+        "match_profile_to_jobs profile_id=%s jobs=%d top_score=%s top_id=%s elapsed_ms=%d",
+        profile.id,
+        len(jobs),
+        f"{top['match_percentage']:.2f}" if top else "0",
+        top["id"] if top else None,
+        elapsed_ms,
+    )
 
     return results_sorted
 
 
-# ---------------------------------------------------------
-# API ENDPOINT
-# ---------------------------------------------------------
 @app.post("/match/jobs")
 def match_jobs_endpoint(payload: MatchRequest):
     return match_profile_to_jobs(payload.jobs, payload.profile)

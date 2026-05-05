@@ -1,33 +1,52 @@
-import logging
 import json
-import asyncio
-import time
-from os import getenv
+import logging
+import os
 import signal
+import uuid
 from pathlib import Path
-from Job_collector import Provider, LinkedInProvider, Job
-from Trend_analyzer import analyze_trends
+
+import asyncio
 import psycopg2
+
 import helpers as hp
+from Job_collector import LinkedInProvider, Provider
+from Trend_analyzer import analyze_trends
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+RUN_ID = uuid.uuid4().hex[:8]
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 
-NLP_EMBEDDING_ORCHESTRATOR_URL = getenv("NLP_EMBEDDING_ORCHESTRATOR_URL") or "http://localhost:5003/nlp-embed"
+def _log(level: int, msg: str, *args):
+    logger.log(level, "[run_id=%s] " + msg, RUN_ID, *args)
 
-apify_token = getenv("APIFY_API_TOKEN")
-linkedin_actor_id = getenv("LINKEDIN_ACTOR_ID") or "bebity/linkedin-jobs-scraper"
-linkedin_active = getenv("LINKEDIN_ACTIVE", "True") == "True"
 
-SCRAPE_TITLE    = getenv("SCRAPE_TITLE", "Software Engineer")
-SCRAPE_LOCATION = getenv("SCRAPE_LOCATION", "Jordan")
-SCRAPE_ROWS     = int(getenv("SCRAPE_ROWS", "20"))
-SCRAPE_PUBLISHED_AT = getenv("SCRAPE_PUBLISHED_AT", "r2592000")
+NLP_EMBEDDING_ORCHESTRATOR_URL = os.getenv("NLP_EMBEDDING_ORCHESTRATOR_URL") or "http://localhost:5003/nlp-embed"
 
-providers : list[Provider] = [LinkedInProvider(apify_token=apify_token, actor_id=linkedin_actor_id) for active in [linkedin_active] if active]
-jobs : list[Job] = []
+apify_token = os.getenv("APIFY_API_TOKEN")
+linkedin_actor_id = os.getenv("LINKEDIN_ACTOR_ID") or "bebity/linkedin-jobs-scraper"
+linkedin_active = os.getenv("LINKEDIN_ACTIVE", "True") == "True"
+
+SCRAPE_TITLE = os.getenv("SCRAPE_TITLE", "Software Engineer")
+SCRAPE_LOCATION = os.getenv("SCRAPE_LOCATION", "Jordan")
+SCRAPE_ROWS = int(os.getenv("SCRAPE_ROWS", "20"))
+SCRAPE_PUBLISHED_AT = os.getenv("SCRAPE_PUBLISHED_AT", "r2592000")
+
+providers: list[Provider] = [
+    LinkedInProvider(apify_token=apify_token, actor_id=linkedin_actor_id)
+    for active in [linkedin_active]
+    if active
+]
 
 signal.signal(signal.SIGTERM, hp.shutdown)
 signal.signal(signal.SIGINT, hp.shutdown)
 
+_log(logging.INFO, "Starting job collection title=%r location=%r", SCRAPE_TITLE, SCRAPE_LOCATION)
 jobs = hp.collect_jobs(
     providers,
     title=SCRAPE_TITLE,
@@ -36,35 +55,28 @@ jobs = hp.collect_jobs(
     published_at=SCRAPE_PUBLISHED_AT,
 )
 
-jobs_json_string = json.dumps(
-    jobs,
-    ensure_ascii=False,
-    default=hp._json_serializer,
-    indent=2
-)
-
 matching_prompt_path = Path(__file__).parent / "prompts" / "matching_object_prompt.txt"
 with matching_prompt_path.open("r", encoding="utf-8") as matching_prompt_file:
     matching_prompt_string = matching_prompt_file.read()
 
-refined_jobs = []
-
-BATCH_SIZE = 5
 refined_jobs_list = []
+BATCH_SIZE = 5
 total_jobs = len(jobs)
-logging.info(f"Refining collected jobs in batches of {BATCH_SIZE}...")
+_log(logging.INFO, "Refining collected jobs in batches of %s (total_jobs=%d)", BATCH_SIZE, total_jobs)
 
 for i in range(0, total_jobs, BATCH_SIZE):
-    jobs_batch = jobs[i:i+BATCH_SIZE]
+    jobs_batch = jobs[i : i + BATCH_SIZE]
     jobs_json_string_batch = json.dumps(
         jobs_batch,
         ensure_ascii=False,
         default=hp._json_serializer,
-        indent=2
+        indent=2,
     )
     prompt = f"{matching_prompt_string}\n\n{jobs_json_string_batch}"
     payload = hp.Request(prompt=prompt)
-    refined_job_batch = asyncio.run(hp.call_nlp_embedding_orchestrator(payload=payload, url=NLP_EMBEDDING_ORCHESTRATOR_URL))
+    refined_job_batch = asyncio.run(
+        hp.call_nlp_embedding_orchestrator(payload=payload, url=NLP_EMBEDDING_ORCHESTRATOR_URL)
+    )
     if hasattr(refined_job_batch, "response"):
         refined_jobs_list.extend(refined_job_batch.response)
     else:
@@ -74,52 +86,37 @@ refined_jobs = hp.Response(response=refined_jobs_list)
 
 jobs_data, refined_job_posts, embeddings, technologies = hp.prepare_data(jobs, refined_jobs)
 
-try:    
-    conn = psycopg2.connect(getenv("DATABASE_URL"))
+conn = None
+cur = None
+try:
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
 
     cur = conn.cursor()
-    
-    if hp.insert_rows(cur, conn, "JobPosts", jobs_data):
-        print("Jobs inserted successfully")
-    else:
-        logging.error("Error occurred while inserting raw jobs into the database")
 
-    time.sleep(0.5)
+    insert_specs = [
+        ("raw jobs", "JobPosts", jobs_data),
+        ("normalized", "NormalizedJobPosts", refined_job_posts),
+        ("embeddings", "EmbeddedJobPosts", embeddings),
+        ("technologies", "TechnicalSkillsRecorded", technologies),
+    ]
+    for label, table_name, rows in insert_specs:
+        ok = hp.insert_rows(cur, conn, table_name, rows)
+        if ok:
+            _log(logging.INFO, "Insert %s -> %s rows=%d ok=True", label, table_name, len(rows))
+        else:
+            _log(logging.ERROR, "Insert %s -> %s rows=%d ok=False", label, table_name, len(rows))
 
-    if hp.insert_rows(cur, conn, "NormalizedJobPosts", refined_job_posts):
-        print("Refined jobs inserted successfully")
-    else:
-        logging.error("Error occurred while inserting refined jobs into the database")
-
-    time.sleep(0.5)
-
-    if hp.insert_rows(cur, conn, "EmbeddedJobPosts", embeddings):
-        print("Embeddings inserted successfully")
-    else:
-        logging.error("Error occurred while inserting job embeddings into the database")
-
-    time.sleep(0.5)
-
-    if hp.insert_rows(cur, conn, "TechnicalSkillsRecorded", technologies):
-        print("Technologies inserted successfully")
-    else:
-        logging.error("Error occurred while inserting technologies into the database")
-
-except Exception as e:
-    logging.error(f"Error occurred while connecting to the database: {e}")
-
+except Exception:
+    logger.exception("[run_id=%s] Database phase failed", RUN_ID)
 finally:
-    if cur:
+    if cur is not None:
         cur.close()
-    if conn:
+    if conn is not None:
         conn.close()
-    print("inserting jobs finished")
+    _log(logging.INFO, "inserting jobs finished")
 
 try:
-    analyze_trends(getenv("DATABASE_URL"))
-    print("Trends table refreshed successfully")
-except Exception as e:
-    logging.error(f"Error occurred while refreshing trends: {e}")
-
-
-
+    analyze_trends(os.getenv("DATABASE_URL"))
+    _log(logging.INFO, "Trends table refreshed successfully")
+except Exception:
+    logger.exception("[run_id=%s] Trends refresh failed", RUN_ID)

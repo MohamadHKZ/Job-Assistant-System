@@ -70,7 +70,7 @@ const Alert = ({ message, type = 'error' }) => {
   if (!data) return <AnimatePresence />;
 
   const fieldList = flattenFieldErrors(data.fieldErrors);
-  const hasMore = !!(data.detail || fieldList.length > 0 || data.traceId);
+  const hasMore = !!(data.detail || fieldList.length > 0);
 
   return (
     <AnimatePresence>
@@ -88,6 +88,15 @@ const Alert = ({ message, type = 'error' }) => {
             <div className={`font-medium leading-relaxed ${conf.accent}`}>
               {data.title}
             </div>
+
+            {data.traceId && (
+              <p
+                className={`mt-1.5 text-[11px] font-mono select-all ${conf.muted}`}
+                title="Quote this id when contacting support"
+              >
+                Reference id: {data.traceId}
+              </p>
+            )}
 
             {hasMore && (
               <button
@@ -134,12 +143,6 @@ const Alert = ({ message, type = 'error' }) => {
                       </li>
                     ))}
                   </ul>
-                )}
-
-                {data.traceId && (
-                  <p className={`text-[11px] font-mono ${conf.muted}`}>
-                    trace: {data.traceId}
-                  </p>
                 )}
               </div>
             </motion.div>

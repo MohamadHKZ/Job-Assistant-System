@@ -1,5 +1,6 @@
 import snakecaseKeys from "snakecase-keys";
 import { parseApiError } from "./apiError";
+import { devLog } from "./devLog";
 
 const API_URL =
   import.meta.env.VITE_BACKEND_API_BASE_URL || "https://localhost:5000";
@@ -43,10 +44,9 @@ export const updateProfile = async (
     ? `${API_URL}/api/profile/${profileId}/update`
     : `${API_URL}/api/profile/${jobSeekerId}/save`;
 
-  console.log(url);
   const method = profileId ? "PUT" : "POST";
   const snakedProfileData = snakecaseKeys(profileData);
-  console.log(snakedProfileData);
+  devLog("[profile] updateProfile", method, url, snakedProfileData);
   const response = await fetch(url, {
     method: method,
     headers: {
@@ -55,7 +55,6 @@ export const updateProfile = async (
     },
     body: JSON.stringify(snakedProfileData),
   });
-  console.log(snakedProfileData);
   if (!response.ok) throw await parseApiError(response);
 
   return response.json();
@@ -86,7 +85,7 @@ export const uploadCV = async (cvFile, token) => {
 
   if (!response.ok) throw await parseApiError(response);
   const res = await response.json();
-  console.log(res);
+  devLog("[profile] uploadCV result", res);
   return res;
 };
 

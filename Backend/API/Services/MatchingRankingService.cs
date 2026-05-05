@@ -1,16 +1,22 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using API.DTOs;
+using API.Logging;
+using JobAssistantSystem.API.Errors;
+using Microsoft.Extensions.Logging;
 
 namespace API.Services;
 
 public class MatchingRankingService : IMatchingRankingService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<MatchingRankingService> _logger;
     private const string BaseUrlEnvVar = "MATCHING_SERVICE_BASE_URL";
 
-    public MatchingRankingService(HttpClient httpClient)
+    public MatchingRankingService(HttpClient httpClient, ILogger<MatchingRankingService> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
 
         // Take the URL from environment variables
         if (_httpClient.BaseAddress is null)
@@ -38,16 +44,28 @@ public class MatchingRankingService : IMatchingRankingService
             profile
         };
 
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.PostAsJsonAsync("/match/jobs", payload, cancellationToken);
+        sw.Stop();
 
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException(
-                $"Matching service returned {(int)response.StatusCode} ({response.ReasonPhrase}). Body: {body}");
+            var safe = LogText.Truncate500(body);
+            _logger.LogError(
+                "Matching service returned {Status} ({Reason}) for jobs={JobCount} in {ElapsedMs}ms. Body: {Body}",
+                (int)response.StatusCode, response.ReasonPhrase, jobs.Count, sw.ElapsedMilliseconds, safe);
+            if (_logger.IsEnabled(LogLevel.Debug) && body.Length > 500)
+                _logger.LogDebug("Full matching-service error body: {Body}", body);
+
+            throw new UpstreamServiceException($"Matching service returned {(int)response.StatusCode}.");
         }
 
         var results = await response.Content.ReadFromJsonAsync<MatchResultDTO[]>(cancellationToken: cancellationToken);
+        _logger.LogInformation(
+            "Matching service OK: jobs={JobCount} in {ElapsedMs}ms",
+            jobs.Count, sw.ElapsedMilliseconds);
+
         return results ?? Array.Empty<MatchResultDTO>();
     }
 

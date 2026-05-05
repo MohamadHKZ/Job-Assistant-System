@@ -1,41 +1,73 @@
-from typing import Any, List
-from fastapi import HTTPException
+import contextvars
+import json
 import logging
 import os
-from pyparsing import Dict, Union
+import time
+import uuid
+from contextvars import ContextVar
+from typing import Any, List
+
 import requests
-import json
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
-logging.basicConfig(level=logging.INFO)
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="-")
+
+
+class _TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.trace_id = trace_id_ctx.get("-")
+        return True
+
+
+class TraceIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        tid = request.headers.get("x-trace-id") or uuid.uuid4().hex[:16]
+        token = trace_id_ctx.set(tid)
+        try:
+            response = await call_next(request)
+        finally:
+            trace_id_ctx.reset(token)
+        response.headers["X-Trace-Id"] = tid
+        return response
+
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s [%(levelname)s] [trace=%(trace_id)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+_trace_id_filter = _TraceIdFilter()
+for _handler in logging.root.handlers:
+    _handler.addFilter(_trace_id_filter)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------
-# CONFIG (FROM ENV)
-# ---------------------------------------------------------
-# Set LLM_PROVIDER to either "openrouter" (default) or "lmstudio"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openrouter").lower()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL   = os.getenv("OPENROUTER_MODEL")
-OPENROUTER_URL     = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL")
+OPENROUTER_URL = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
 
-LM_STUDIO_URL      = os.getenv("LM_STUDIO_URL", "http://host.docker.internal:1234/v1/chat/completions")
-LM_STUDIO_MODEL    = os.getenv("LM_STUDIO_MODEL", "local-model")
+LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://host.docker.internal:1234/v1/chat/completions")
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "local-model")
 
 if LLM_PROVIDER == "openrouter" and not OPENROUTER_API_KEY:
     raise RuntimeError("OPENROUTER_API_KEY environment variable is not set")
 
-logging.info(f"LLM provider: {LLM_PROVIDER}")
+logger.info(
+    "NLP service startup provider=%s model=%s",
+    LLM_PROVIDER,
+    OPENROUTER_MODEL if LLM_PROVIDER != "lmstudio" else LM_STUDIO_MODEL,
+)
 
-# ---------------------------------------------------------
-# FASTAPI APP
-# ---------------------------------------------------------
 app = FastAPI(title="NLP Service")
+app.add_middleware(TraceIdMiddleware)
 
-# ---------------------------------------------------------
-# REQUEST / RESPONSE MODELS
-# ---------------------------------------------------------
+
 class PromptRequest(BaseModel):
     prompt: str
 
@@ -52,9 +84,12 @@ def strip_json_fences(text: str) -> str:
     return text.strip()
 
 
-# ---------------------------------------------------------
-# PROVIDER IMPLEMENTATIONS
-# ---------------------------------------------------------
+def _truncate500(s: str) -> str:
+    if len(s) <= 500:
+        return s
+    return s[:500] + "..."
+
+
 def _build_openrouter_request(prompt: str):
     url = OPENROUTER_URL
     headers = {
@@ -79,9 +114,6 @@ def _build_lmstudio_request(prompt: str):
     return url, headers, payload
 
 
-# ---------------------------------------------------------
-# LLM CALL FUNCTION
-# ---------------------------------------------------------
 def call_llm(prompt: str):
     if LLM_PROVIDER == "lmstudio":
         url, headers, payload = _build_lmstudio_request(prompt)
@@ -90,6 +122,7 @@ def call_llm(prompt: str):
         url, headers, payload = _build_openrouter_request(prompt)
         provider_label = "OpenRouter"
 
+    t0 = time.perf_counter()
     try:
         response = requests.post(
             url,
@@ -99,29 +132,47 @@ def call_llm(prompt: str):
         )
         response.raise_for_status()
     except requests.HTTPError as e:
-        logging.error(f"{provider_label} returned an error: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(status_code=502, detail="LLM provider returned an error")
+        body = e.response.text or ""
+        safe = _truncate500(body)
+        logger.error(
+            "%s returned %s for prompt_len=%d: %s",
+            provider_label,
+            e.response.status_code,
+            len(prompt),
+            safe,
+        )
+        if logger.isEnabledFor(logging.DEBUG) and len(body) > 500:
+            logger.debug("Full %s error body: %s", provider_label, body)
+        raise HTTPException(status_code=502, detail="LLM provider returned an error") from e
     except requests.RequestException as e:
-        logging.error(f"Failed to reach {provider_label}: {e}")
-        raise HTTPException(status_code=503, detail="LLM provider is unreachable")
+        logger.error("Failed to reach %s: %s", provider_label, e)
+        raise HTTPException(status_code=503, detail="LLM provider is unreachable") from e
 
+    elapsed_ms = int((time.perf_counter() - t0) * 1000)
     result = response.json()
     raw_content = result["choices"][0]["message"]["content"]
     raw_content = strip_json_fences(raw_content)
 
+    logger.info(
+        "llm_ask provider=%s prompt_len=%d response_len=%d elapsed_ms=%d",
+        provider_label,
+        len(prompt),
+        len(raw_content),
+        elapsed_ms,
+    )
+
     try:
         return json.loads(raw_content)
     except json.JSONDecodeError:
-        logging.error(f"LLM returned invalid JSON:\n{raw_content}")
+        safe = _truncate500(raw_content)
+        logger.error("LLM returned invalid JSON (len=%d): %s", len(raw_content), safe)
+        logger.debug("Full LLM raw response: %s", raw_content)
         raise HTTPException(
             status_code=500,
-            detail=f"LLM did not return valid JSON\n\n{raw_content}",
-        )
+            detail="LLM did not return valid JSON",
+        ) from None
 
 
-# ---------------------------------------------------------
-# API ENDPOINT
-# ---------------------------------------------------------
 @app.post("/llm/ask", response_model=PromptResponse)
 def ask_llm(payload: PromptRequest):
     try:
@@ -129,6 +180,6 @@ def ask_llm(payload: PromptRequest):
         return {"response": answer}
     except HTTPException:
         raise
-    except Exception as e:
-        logging.error(f"Unexpected error in /llm/ask: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    except Exception:
+        logger.exception("Unexpected error in /llm/ask")
+        raise HTTPException(status_code=500, detail="Internal server error") from None

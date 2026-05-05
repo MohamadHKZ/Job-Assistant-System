@@ -7,16 +7,20 @@ using JobAssistantSystem.API.Errors;
 using JobAssistantSystem.API.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace API.Controllers
 {
-    public class AccountsController(AppDbContext _context, IJwtTokenService _jwtTokenService) : BaseController
+    public class AccountsController(AppDbContext _context, IJwtTokenService _jwtTokenService, ILogger<AccountsController> _logger) : BaseController
     {
         [HttpPost("register")]
         public async Task<ActionResult<UserDTO>> Register(RegisterDTO registerDto)
         {
             if (await EmailExists(registerDto.Email))
+            {
+                _logger.LogWarning("Register failed: email {Email} already taken", registerDto.Email.Trim().ToLowerInvariant());
                 throw new EmailAlreadyTakenException(registerDto.Email);
+            }
 
             using HMACSHA512 hmac = new HMACSHA512();
             var user = new User
@@ -29,6 +33,7 @@ namespace API.Controllers
             };
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Registered new user {UserId} email={Email}", user.UserId, user.Email);
             return user.ToUserDTO(_jwtTokenService.GenerateToken(user));
         }
 
@@ -37,15 +42,23 @@ namespace API.Controllers
         {
             var user = await _context.Users.SingleOrDefaultAsync(x => x.Email == loginDto.Email);
             // Single failure path (no email-vs-password leak) — prevents user enumeration.
-            if (user == null) throw new InvalidCredentialsException();
+            if (user == null)
+            {
+                _logger.LogWarning("Login failed for email={Email}", loginDto.Email);
+                throw new InvalidCredentialsException();
+            }
 
             using var hmac = new HMACSHA512(user.PasswordSalt);
             var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
 
             // Constant-time comparison defends against timing attacks.
             if (!CryptographicOperations.FixedTimeEquals(computedHash, user.PasswordHash))
+            {
+                _logger.LogWarning("Login failed for email={Email}", loginDto.Email);
                 throw new InvalidCredentialsException();
+            }
 
+            _logger.LogInformation("User {UserId} logged in", user.UserId);
             return user.ToUserDTO(_jwtTokenService.GenerateToken(user));
         }
 

@@ -118,8 +118,16 @@ const ProfileUser = ({ user, token }) => {
             setCurrentCV(profile.cvFileName);
           }
         }
-      } catch {
-        // No existing profile yet
+      } catch (err) {
+        if (err?.status === 404) {
+          // No existing profile yet — expected on first visit
+          return;
+        }
+        console.warn(
+          'Failed to load profile:',
+          err?.title || err?.message || err,
+          err?.traceId != null ? `(traceId: ${err.traceId})` : '',
+        );
       }
     };
 

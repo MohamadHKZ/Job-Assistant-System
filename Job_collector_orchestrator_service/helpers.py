@@ -52,6 +52,8 @@ class UnifiedResponseItem(BaseModel):
 class Response(BaseModel):
     response: List[UnifiedResponseItem]
 
+logger = logging.getLogger(__name__)
+
 class PublishedAt(Enum):
     LAST_DAY = "r86400"
     LAST_WEEK = "r604800"
@@ -71,9 +73,9 @@ def collect_jobs(
         try:
             collector = JobCollector(provider=provider)
             jobs.extend(collector.collect(title=title, location=location, rows=rows, published_at=published_at))
-        except Exception as e:
-            logging.error(f"Error occurred while collecting jobs from {provider.name}: {e}")
-    logging.info(f"Total jobs collected: {len(jobs)}")
+        except Exception:
+            logger.exception("Error occurred while collecting jobs from %s", provider.name)
+    logger.info("Total jobs collected: %d", len(jobs))
     return jobs
 
 async def call_nlp_embedding_orchestrator(payload: Request,url: str) -> Response:
@@ -89,9 +91,7 @@ async def call_nlp_embedding_orchestrator(payload: Request,url: str) -> Response
 
 
 def shutdown(signum, frame):
-    global running
-    logging.info(f"Received signal {signum}, shutting down...")
-    running["value"] = False
+    logger.info("Received signal %s, shutting down...", signum)
 
 def _json_serializer(value):
     if isinstance(value, datetime):
@@ -124,10 +124,19 @@ def insert_rows(cur, conn, table_name: str, rows: list[dict]) -> bool:
         return True
     except Exception as e:
         conn.rollback()
-        logging.error(
-            f"Error occurred while inserting rows into {table_name}: {e}\n"
-            f"Rows: {json.dumps(rows, default=str, indent=2)}"
+        logger.error(
+            "Insert failed table=%s rows=%d sample_keys=%s: %s",
+            table_name,
+            len(rows),
+            list(rows[0].keys()) if rows else [],
+            e,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Insert failed payload table=%s rows=%s",
+                table_name,
+                json.dumps(rows, default=str),
+            )
         return False
 
 def prepare_data(jobs: list[Job], refined_data: Response):

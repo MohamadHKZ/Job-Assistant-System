@@ -71,7 +71,7 @@ namespace Job_Assistant_System.API.Controllers
                 EmbeddedJobPost? fullJobPost = embeddedJobPostsById[rankedJobId].FirstOrDefault();
                 if (fullJobPost is null)
                 {
-                    Console.WriteLine($"Warning: Embedded job post with ID {rankedJobId} not found. Skipping this job.");
+                    _logger.LogWarning("Embedded job post {JobPostId} not found in lookup; skipping", rankedJobId);
                     continue;
                 }
 
@@ -94,31 +94,28 @@ namespace Job_Assistant_System.API.Controllers
             return Ok(jobPostsDTO);
         }
 
-        private void LogMatchingObjectsBeforeRanking(int profileId, MatchingObjectDTO profileEntity, IEnumerable<MatchingObjectDTO> jobPostsEntity)
+        private void LogMatchingObjectsBeforeRanking(int profileId, MatchingObjectDTO profileEntity, List<MatchingObjectDTO> jobPostsList)
         {
-            try
-            {
-                _logger.LogInformation(
-                    "Sending matching payload for profile {ProfileId}. Profile object: {ProfileObjectWithoutEmbeddings}",
-                    profileId,
-                    JsonSerializer.Serialize(GetMatchingObjectWithoutEmbeddings(profileEntity))
-                );
+            _logger.LogInformation(
+                "Matching payload prepared for profile {ProfileId}: {JobCount} jobs, profile title={ProfileTitle}",
+                profileId, jobPostsList.Count, profileEntity.Title);
 
-                int iteration = 0;
-                foreach (var jobEntity in jobPostsEntity)
-                {
-                    iteration++;
-                    _logger.LogInformation(
-                        "Matching payload item {Iteration} for profile {ProfileId}. Job object: {JobObjectWithoutEmbeddings}",
-                        iteration,
-                        profileId,
-                        JsonSerializer.Serialize(GetMatchingObjectWithoutEmbeddings(jobEntity))
-                    );
-                }
-            }
-            catch (Exception ex)
+            if (!_logger.IsEnabled(LogLevel.Debug))
+                return;
+
+            _logger.LogDebug(
+                "Profile payload (no embeddings): {Payload}",
+                JsonSerializer.Serialize(GetMatchingObjectWithoutEmbeddings(profileEntity)));
+
+            var iteration = 0;
+            foreach (var jobEntity in jobPostsList)
             {
-                _logger.LogError(ex, "Failed to log matching objects before ranking for profile {ProfileId}", profileId);
+                iteration++;
+                _logger.LogDebug(
+                    "Job payload [{Iteration}] for profile {ProfileId}: {Payload}",
+                    iteration,
+                    profileId,
+                    JsonSerializer.Serialize(GetMatchingObjectWithoutEmbeddings(jobEntity)));
             }
         }
 
@@ -135,20 +132,20 @@ namespace Job_Assistant_System.API.Controllers
 
         private void LogRankedJobs(int profileId, IEnumerable<MatchResultDTO> rankedJobs)
         {
-            try
-            {
-                var orderedRankedJobs = rankedJobs.OrderByDescending(job => job.Score).ToList();
+            var orderedRankedJobs = rankedJobs.OrderByDescending(job => job.Score).ToList();
 
-                _logger.LogInformation("Ranked jobs generated for profile {ProfileId}. Total results: {TotalResults}", profileId, orderedRankedJobs.Count);
+            _logger.LogInformation(
+                "Ranked jobs generated for profile {ProfileId}. Total results: {TotalResults}",
+                profileId, orderedRankedJobs.Count);
 
-                foreach (var job in orderedRankedJobs)
-                {
-                    _logger.LogInformation("Profile {ProfileId} ranked job -> JobId: {JobId}, Score: {Score}", profileId, job.Id, job.Score);
-                }
-            }
-            catch (Exception ex)
+            if (!_logger.IsEnabled(LogLevel.Debug))
+                return;
+
+            foreach (var job in orderedRankedJobs)
             {
-                _logger.LogError(ex, "Failed to log ranked jobs output for profile {ProfileId}", profileId);
+                _logger.LogDebug(
+                    "Profile {ProfileId} ranked job -> JobId: {JobId}, Score: {Score}",
+                    profileId, job.Id, job.Score);
             }
         }
 

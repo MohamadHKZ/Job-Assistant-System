@@ -1,10 +1,7 @@
 import logging
 from Job_collector.data_models.job_model import Job
 from Job_collector.interfaces.provider import Provider
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
+
 
 class JobCollector:
     def __init__(self, provider: Provider | None = None) -> None:
@@ -19,7 +16,7 @@ class JobCollector:
         rows: int = 50,
         published_at: str = "r604800",
     ) -> list[Job]:
-        self.logger.info(f"Collecting data from {self.provider.name}...")
+        self.logger.info("Collecting data from %s...", self.provider.name)
 
         jobs = self.provider.get_jobs(
             location=location,
