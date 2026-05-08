@@ -39,7 +39,7 @@ public class ProfileController : BaseController
 
         var profileQualifications = profile?.ProfileQualifications;
         if (profileQualifications == null || profile == null)
-            throw new ProfileNotFoundException(profileId);
+            throw new NotFoundException("profile", profileId);
         ProfileDTO profileDTO = new ProfileDTO
         {
             ProfileId = profileQualifications.ProfileId,
@@ -49,6 +49,7 @@ public class ProfileController : BaseController
             JobPositionSkills = profileQualifications.JobPositionSkills,
             SoftSkills = profileQualifications.SoftSkills,
             Experience = profileQualifications.Experience,
+            Technologies = profileQualifications.Technologies,
             ReceiveNotifications = profile.ReceiveNotifications
         };
         return Ok(profileDTO);
@@ -58,7 +59,7 @@ public class ProfileController : BaseController
     {
         var profileId = await _profileService.GetProfileIdByUserIdAsync(userId);
         if (profileId == null)
-            throw new ProfileNotFoundException(userId);
+            throw new NotFoundException("user", userId);
         return Ok(profileId);
     }
 
@@ -93,6 +94,10 @@ public class ProfileController : BaseController
         }
         else
         {
+            var existing = await _profileService.GetProfileByIdAsync(profileId);
+            if (existing is null)
+                throw new NotFoundException("profile", profileId);
+
             var qualifications = await _profileService.UpdateProfileAsync(profileConfig, embedding.Embeddings, profileId);
             _logger.LogInformation("Profile {ProfileId} updated for user {UserId}", profileId, userId);
             return Ok(qualifications);
@@ -101,10 +106,14 @@ public class ProfileController : BaseController
 
     // POST: /api/profile/extract-info
     // Content-Type: application/pdf
-    [HttpPost("extract-info")]
+    [HttpPost("extract-info/{userId}")]
     [Consumes("application/pdf")]
-    public async Task<ActionResult<ProfileDTO>> ExtractInfoFromPdf()
+    public async Task<ActionResult<ProfileDTO>> ExtractInfoFromPdf(int userId)
     {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+        if (user is null)
+            throw new NotFoundException("user", userId);
+
         if (Request.Body == null || !Request.Body.CanRead)
             return this.ProblemFor(
                 typeSlug: "invalid-pdf-body",
@@ -143,7 +152,7 @@ public class ProfileController : BaseController
             extraction_prompt.Length,
             document.NumberOfPages);
         string prompt = extraction_prompt + "\n\n" + sb.ToString();
-        ProfileDTO profile = _nlpService.StructureProfile(prompt);
+        ProfileDTO profileDto = _nlpService.StructureProfile(prompt);
         _logger.LogInformation(
             "Extracted profile from CV: {PageCount} pages, {CharCount} chars",
             document.NumberOfPages,
@@ -154,7 +163,7 @@ public class ProfileController : BaseController
             var preview = text.Length > 500 ? text[..500] + "..." : text;
             _logger.LogDebug("CV extracted text preview: {Preview}", preview);
         }
-        return Ok(profile);
+        return Ok(profileDto);
     }
 
 }

@@ -2,6 +2,7 @@ using API.Controllers;
 using API.DTOs;
 using API.Entities;
 using Backend.API.DTOs;
+using JobAssistantSystem.API.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -15,13 +16,17 @@ namespace Job_Assistant_System.API.Controllers
         [HttpGet("{profileId}")]
         public async Task<ActionResult<IEnumerable<JobPostDTO>>> GetJobs(int profileId)
         {
+            var profile = await _profileService.GetProfileByIdAsync(profileId);
+            if (profile is null)
+                throw new NotFoundException("profile", profileId);
+
             var embeddedProfile = await _profileService.GetEmbeddedProfileByIdAsync(profileId);
             var profileQualifications = await _profileService.GetProfileQualificationsByIdAsync(profileId);
             var embeddedJobPosts = await _jobsService.GetAllEmbeddedJobPostsAsync();
 #pragma warning disable CS8601 // Possible null reference assignment.c
             var profileEntity = new MatchingObjectDTO
             {
-                Id = embeddedProfile.ProfileId,
+                Id = embeddedProfile!.ProfileId,
                 Title = profileQualifications?.SeekedJobTitle?.FirstOrDefault() ?? string.Empty,
                 Experience = profileQualifications?.Experience ?? string.Empty,
                 Techonologies = profileQualifications?.Technologies ?? new(),
@@ -152,6 +157,10 @@ namespace Job_Assistant_System.API.Controllers
         [HttpGet()]
         public async Task<ActionResult<JobPostDTO>> GetJobById(int id)
         {
+            var job = await _jobsService.GetFullJobPostByIdAsync(id);
+            if (job is null)
+                throw new NotFoundException("job", id);
+
             // TODO: Implement get job by id logic
             return Ok(new JobPostDTO());
         }

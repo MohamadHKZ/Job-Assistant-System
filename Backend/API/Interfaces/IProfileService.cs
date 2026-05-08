@@ -8,5 +8,5 @@ public interface IProfileService
     Task<ProfileQualifications?> GetProfileQualificationsByIdAsync(int profileId);
     Task<int?> GetProfileIdByUserIdAsync(int userId);
     Task<ProfileQualifications> UpdateProfileAsync(ProfileConfigDTO profileConfig, EmbeddingCategories embedding, int profileId);
-    Task<EmbeddedProfile> GetEmbeddedProfileByIdAsync(int profileId);
+    Task<EmbeddedProfile?> GetEmbeddedProfileByIdAsync(int profileId);
 }

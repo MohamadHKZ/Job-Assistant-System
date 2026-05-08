@@ -61,7 +61,7 @@ export const updateProfile = async (
 };
 
 // Endpoint: POST api/{jobseeker_id}/{profile_id}/upload_cv
-export const uploadCV = async (cvFile, token) => {
+export const uploadCV = async (cvFile, token, userId) => {
   // Reject FormData (it will be multipart/form-data, not application/pdf)
   if (cvFile instanceof FormData) {
     throw new Error("uploadCV expects a PDF File/Blob, not FormData");
@@ -73,15 +73,18 @@ export const uploadCV = async (cvFile, token) => {
     throw new Error("CV must be a PDF (application/pdf)");
   }
 
-  const response = await fetch(`${API_URL}/api/profile/extract-info`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/pdf",
-      Accept: "application/json",
+  const response = await fetch(
+    `${API_URL}/api/profile/extract-info/${userId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/pdf",
+        Accept: "application/json",
+      },
+      body: cvFile, // send raw PDF bytes
     },
-    body: cvFile, // send raw PDF bytes
-  });
+  );
 
   if (!response.ok) throw await parseApiError(response);
   const res = await response.json();

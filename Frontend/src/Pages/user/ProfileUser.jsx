@@ -149,7 +149,7 @@ const ProfileUser = ({ user, token }) => {
     setMessage({ text: '', type: '' });
 
     try {
-      const dto = await uploadCV(file, token);
+      const dto = await uploadCV(file, token, user.jobSeekerId);
       bindProfileDtoToForm(dto);
       setMessage({
         text: 'CV processed and your profile fields have been filled in.',

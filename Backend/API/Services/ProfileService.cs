@@ -22,6 +22,7 @@ class ProfileService(AppDbContext _dbContext, ILogger<ProfileService> _logger) :
             EmbeddedFieldSkills = embedding.FieldSkills,
             EmbeddedSoftSkills = embedding.SoftSkills,
             EmbeddedJobPositionSkills = embedding.JobPositionSkills,
+            EmbeddedTechnologies = embedding.Technologies,
             EmbeddedJobTitle = embedding.JobTitle
         };
         await _dbContext.EmbeddedProfiles.AddAsync(embeddedProfile);
@@ -62,14 +63,14 @@ class ProfileService(AppDbContext _dbContext, ILogger<ProfileService> _logger) :
         if (profile == null)
         {
             _logger.LogWarning("UpdateProfile: profile {ProfileId} not found", profileId);
-            throw new ProfileNotFoundException(profileId);
+            throw new NotFoundException("profile", profileId);
         }
 
         var qualifications = profile.ProfileQualifications;
         if (qualifications == null)
         {
             _logger.LogWarning("UpdateProfile: qualifications missing for profile {ProfileId}", profileId);
-            throw new ProfileNotFoundException(profileId);
+            throw new NotFoundException("profile", profileId);
         }
         ProfileConfigToProfileAndQualifications(profileConfig, profile, qualifications);
         var embeddedProfile = await _dbContext.EmbeddedProfiles
