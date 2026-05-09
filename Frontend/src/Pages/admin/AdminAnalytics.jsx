@@ -104,7 +104,7 @@ const AdminAnalytics = ({ token }) => {
         </Button>
       </div>
 
-      {error && <Alert type="error" message={error.message || String(error)} />}
+      {error && <Alert type="error" message={error} />}
 
       <div className="grid sm:grid-cols-2 gap-4">
         <Kpi icon={Users} label="Total users" value={data?.totalUsers ?? '—'} accent="emerald" />

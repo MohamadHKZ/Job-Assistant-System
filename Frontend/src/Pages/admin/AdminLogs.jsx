@@ -66,7 +66,7 @@ const AdminLogs = ({ token }) => {
         </div>
       </div>
 
-      {error && <Alert type="error" message={error.message || String(error)} />}
+      {error && <Alert type="error" message={error} />}
 
       <motion.div
         initial={{ opacity: 0, y: 6 }}

@@ -67,7 +67,7 @@ const AdminJobSources = ({ token }) => {
         </Button>
       </div>
 
-      {error && <Alert type="error" message={error.message || String(error)} />}
+      {error && <Alert type="error" message={error} />}
 
       <div className="surface rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
         <table className="w-full text-sm">

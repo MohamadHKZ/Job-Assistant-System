@@ -78,7 +78,7 @@ const AdminSettings = ({ token }) => {
         </p>
       </div>
 
-      {error && <Alert type="error" message={error.message || String(error)} />}
+      {error && <Alert type="error" message={error} />}
       {savedOk && <Alert type="success" message="Settings saved." />}
 
       <motion.div
