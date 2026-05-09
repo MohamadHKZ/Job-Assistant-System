@@ -27,6 +27,8 @@ services:
       EMBEDDING_SERVICE_BASEURL: "http://embedding_service:5001"
       ASPNETCORE_URLS: http://0.0.0.0:5000
       ConnectionStrings__DefaultConnection: "${JobAssistantDbConnectionString}"
+    volumes:
+      - logs_data:/logs:ro
 
   embedding_service:
     image: mohamad121/jobassistantsystem-embedding_service:latest
@@ -78,3 +80,14 @@ services:
       SCRAPE_LOCATION: "Jordan"
       SCRAPE_ROWS: "20"
       SCRAPE_PUBLISHED_AT: "LAST_DAY" #LAST_DAY, LAST_WEEK, LAST_MONTH
+
+  log_collector:
+    image: mohamad121/jobassistantsystem-log_collector:latest
+    build: ./Log_collector_service
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - logs_data:/logs
+    restart: unless-stopped
+
+volumes:
+  logs_data:

@@ -34,7 +34,9 @@ namespace API.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             _logger.LogInformation("Registered new user {UserId} email={Email}", user.UserId, user.Email);
-            return user.ToUserDTO(_jwtTokenService.GenerateToken(user));
+
+            var roles = await GetRoleNamesAsync(user.UserId);
+            return user.ToUserDTO(_jwtTokenService.GenerateToken(user, roles), roles);
         }
 
         [HttpPost("login")]
@@ -58,13 +60,23 @@ namespace API.Controllers
                 throw new InvalidCredentialsException();
             }
 
+            var roles = await GetRoleNamesAsync(user.UserId);
             _logger.LogInformation("User {UserId} logged in", user.UserId);
-            return user.ToUserDTO(_jwtTokenService.GenerateToken(user));
+            return user.ToUserDTO(_jwtTokenService.GenerateToken(user, roles), roles);
         }
 
         private async Task<bool> EmailExists(string email)
         {
             return await _context.Users.AnyAsync(x => x.Email == email);
+        }
+
+        private async Task<List<string>> GetRoleNamesAsync(int userId)
+        {
+            return await _context.UserRoles
+                .AsNoTracking()
+                .Where(ur => ur.UserId == userId)
+                .Select(ur => ur.Role.Name)
+                .ToListAsync();
         }
     }
 }

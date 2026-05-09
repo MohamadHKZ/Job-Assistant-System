@@ -3,8 +3,16 @@ using API.Entities;
 
 public static class AppUserExtensions
 {
-    public static UserDTO ToUserDTO(this User user, string token)
+    public static UserDTO ToUserDTO(this User user, string token, IEnumerable<string>? roles = null)
     {
+        var roleList = roles?
+            .Where(static r => !string.IsNullOrWhiteSpace(r))
+            .Select(static r => r.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+        var primaryRole = roleList.FirstOrDefault() ?? "User";
+
         return new UserDTO
         {
             Id = user.UserId,
@@ -12,6 +20,7 @@ public static class AppUserExtensions
             FirstName = user.FirstName,
             LastName = user.LastName,
             Token = token,
+            Role = primaryRole,
         };
     }
 }

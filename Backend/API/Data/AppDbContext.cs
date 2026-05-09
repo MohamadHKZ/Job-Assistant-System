@@ -1,7 +1,5 @@
-using System.Text.Json;
 using API.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace API.Data;
 
@@ -16,9 +14,12 @@ public class AppDbContext : DbContext
     public DbSet<EmbeddedJobPost> EmbeddedJobPosts { get; set; }
     public DbSet<NormalizedJobPost> NormalizedJobPosts { get; set; }
     public DbSet<Trend> Trends { get; set; }
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<UserRole> UserRoles { get; set; }
+    public DbSet<SystemSetting> SystemSettings { get; set; }
+
     public AppDbContext(DbContextOptions options) : base(options)
     {
-
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -47,6 +48,7 @@ public class AppDbContext : DbContext
             .HasOne(q => q.Profile)
             .WithOne(p => p.ProfileQualifications)
             .HasForeignKey<ProfileQualifications>(q => q.ProfileId);
+
         modelBuilder.Entity<JobPost>()
             .HasKey(jp => new { jp.JobPostId, jp.SourceName });
         modelBuilder.Entity<JobPost>()
@@ -67,5 +69,15 @@ public class AppDbContext : DbContext
             .HasOne(njp => njp.JobPost)
             .WithOne()
             .HasForeignKey<NormalizedJobPost>(njp => new { njp.JobPostId, njp.SourceName });
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.User)
+            .WithMany()
+            .HasForeignKey(ur => ur.UserId);
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.Role)
+            .WithMany()
+            .HasForeignKey(ur => ur.RoleId);
     }
 }

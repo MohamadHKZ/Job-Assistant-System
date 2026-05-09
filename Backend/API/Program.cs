@@ -18,6 +18,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using Npgsql;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,13 +90,17 @@ builder.Services.AddAuthentication((options) =>
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddJwtBearer((options) =>
 {
+    // Map JWT short names (e.g. "role") to ClaimTypes.* so RoleClaimType defaults match [Authorize(Roles)].
+    options.MapInboundClaims = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ValidateIssuer = false,
         ValidateAudience = false,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("super secret key super secret key"))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("super secret key super secret key")),
+        RoleClaimType = ClaimTypes.Role,
+        NameClaimType = ClaimTypes.NameIdentifier,
     };
 });
 var app = builder.Build();

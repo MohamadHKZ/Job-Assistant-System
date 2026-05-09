@@ -65,10 +65,13 @@ const ProfileAuth = ({ onAuthSuccess }) => {
       localStorage.setItem('token', data.token);
       localStorage.setItem('jobSeekerId', data.jobSeekerId);
       localStorage.setItem('email', data.email);
+      const resolvedRole = data.role ?? 'User';
+      localStorage.setItem('role', resolvedRole);
 
       onAuthSuccess(data.token, {
         email: data.email,
         jobSeekerId: data.jobSeekerId,
+        role: resolvedRole,
       });
     } catch (err) {
       setError(err);
