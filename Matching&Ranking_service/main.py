@@ -3,7 +3,7 @@ import os
 import time
 import uuid
 from contextvars import ContextVar
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from fastapi import FastAPI
@@ -69,7 +69,7 @@ class EmbeddingCategories(BaseModel):
 
 
 class MatchingEntity(BaseModel):
-    id: int
+    id: Union[int, str]
     title: str
     experience: str
     techonologies: List[str] = []

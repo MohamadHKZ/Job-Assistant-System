@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from contextvars import ContextVar
-from typing import List
+from typing import List, Union
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -64,7 +64,7 @@ class Embedding_Entity(BaseModel):
     technical_skills: List[str] = []
     job_position_skills: List[str] = []
     field_skills: List[str] = []
-    job_title: List[str] = []
+    job_title: Union[str, List[str]] = ""
     soft_skills: List[str] = []
     technologies: List[str] = []
 

@@ -1,6 +1,7 @@
 using API.Controllers;
 using API.DTOs;
 using API.Entities;
+using API.Interfaces;
 using Backend.API.DTOs;
 using JobAssistantSystem.API.Errors;
 using Microsoft.AspNetCore.Authorization;
@@ -26,8 +27,8 @@ namespace Job_Assistant_System.API.Controllers
 #pragma warning disable CS8601 // Possible null reference assignment.c
             var profileEntity = new MatchingObjectDTO
             {
-                Id = embeddedProfile!.ProfileId,
-                Title = profileQualifications?.SeekedJobTitle?.FirstOrDefault() ?? string.Empty,
+                Id = embeddedProfile!.ProfileId.ToString(),
+                Title = profileQualifications?.SeekedJobTitle ?? string.Empty,
                 Experience = profileQualifications?.Experience ?? string.Empty,
                 Techonologies = profileQualifications?.Technologies ?? new(),
                 Embeddings = new EmbeddingCategories
@@ -44,7 +45,7 @@ namespace Job_Assistant_System.API.Controllers
 
             var jobPostsEntity = embeddedJobPosts.Select(jp => new MatchingObjectDTO
             {
-                Id = jp.JobPostId,
+                Id = jp.Id.ToString(),
                 Title = jp.NormalizedJobPost?.JobPost?.JobTitle ?? string.Empty,
                 Experience = jp.NormalizedJobPost?.ExperienceLevelRefined ?? string.Empty,
                 Techonologies = jp.NormalizedJobPost?.Technologies ?? new(),
@@ -69,14 +70,20 @@ namespace Job_Assistant_System.API.Controllers
                 .Select(rj => rj.Id)
                 .ToList();
 
-            var embeddedJobPostsById = embeddedJobPosts.ToLookup(jp => jp.JobPostId);
+            var embeddedJobPostsById = embeddedJobPosts.ToLookup(jp => jp.Id.ToString());
             var jobPostsDTO = new List<JobPostDTO>();
             foreach (var rankedJobId in rankedJobIds)
             {
                 EmbeddedJobPost? fullJobPost = embeddedJobPostsById[rankedJobId].FirstOrDefault();
                 if (fullJobPost is null)
                 {
-                    _logger.LogWarning("Embedded job post {JobPostId} not found in lookup; skipping", rankedJobId);
+                    _logger.LogWarning("Embedded job post {JobId} not found in lookup; skipping", rankedJobId);
+                    continue;
+                }
+
+                if (!Guid.TryParse(rankedJobId, out var jobGuid))
+                {
+                    _logger.LogWarning("Invalid job id from matcher: {JobId}", rankedJobId);
                     continue;
                 }
 
@@ -85,7 +92,7 @@ namespace Job_Assistant_System.API.Controllers
 
                 jobPostsDTO.Add(new JobPostDTO
                 {
-                    Id = rankedJobId,
+                    Id = jobGuid,
                     JobTitle = jobPost?.JobTitle,
                     CompanyName = jobPost?.CompanyName,
                     Location = jobPost?.Location,
@@ -154,12 +161,12 @@ namespace Job_Assistant_System.API.Controllers
             }
         }
 
-        [HttpGet()]
-        public async Task<ActionResult<JobPostDTO>> GetJobById(int id)
+        [HttpGet]
+        public async Task<ActionResult<JobPostDTO>> GetJobById([FromQuery] Guid jobId)
         {
-            var job = await _jobsService.GetFullJobPostByIdAsync(id);
+            var job = await _jobsService.GetFullJobPostByIdAsync(jobId);
             if (job is null)
-                throw new NotFoundException("job", id);
+                throw new NotFoundException("job", jobId.ToString());
 
             // TODO: Implement get job by id logic
             return Ok(new JobPostDTO());

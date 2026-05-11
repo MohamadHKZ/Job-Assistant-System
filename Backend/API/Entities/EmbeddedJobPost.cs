@@ -6,8 +6,12 @@ namespace API.Entities;
 public class EmbeddedJobPost
 {
     [Key]
+    public Guid Id { get; set; }
+
+    [Required]
     public long JobPostId { get; set; }
-    [Key]
+
+    [Required]
     public string SourceName { get; set; } = string.Empty;
 
     [Column(TypeName = "jsonb")]
@@ -27,5 +31,6 @@ public class EmbeddedJobPost
 
     [Column(TypeName = "jsonb")]
     public List<SkillEmbedding> EmbeddedTechnologies { get; set; } = new List<SkillEmbedding>();
+
     public NormalizedJobPost NormalizedJobPost { get; set; } = null!;
 }

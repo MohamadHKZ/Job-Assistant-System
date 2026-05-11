@@ -28,7 +28,7 @@ OUTPUT REQUIREMENTS (STRICT)
 REQUIRED OUTPUT STRUCTURE
 {
   "ProfileId": long,(always 0)
-  "SeekedJobTitle": [string],IMPORTANT (job_title should be array even its a single element)
+  "SeekedJobTitle": string,
   "TechnicalSkills": [string],
   "FieldSkills": [string],
   "SoftSkills": [string],  
@@ -41,6 +41,7 @@ REQUIRED OUTPUT STRUCTURE
 CATEGORY RULES
 
 1) SeekedJobTitle
+- Output a **single plain string** (not an array): one normalized job title.
 - Normalize job titles into the MOST COMMON and INDUSTRY-STANDARD role names.
 - Do NOT keep rare, ambiguous, or company-specific variations.
 - Remove seniority, hype terms, and descriptors (e.g., Senior, Junior, 10x, Rockstar, Contract).

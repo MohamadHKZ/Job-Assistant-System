@@ -4,7 +4,7 @@ namespace Backend.API.DTOs
 {
     public class JobPostDTO
     {
-        public long Id { get; set; }
+        public Guid Id { get; set; }
         public string? JobTitle { get; set; }
         public string? CompanyName { get; set; }
         public string? JobDescription { get; set; }

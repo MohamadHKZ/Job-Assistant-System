@@ -2,3 +2,4 @@ psycopg2-binary
 pydantic
 httpx
 apify-client
+uuid-utils

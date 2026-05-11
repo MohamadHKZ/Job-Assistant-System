@@ -5,9 +5,14 @@ namespace API.Entities;
 public class JobPost
 {
     [Key]
+    public Guid Id { get; set; }
+
+    [Required]
     public long JobPostId { get; set; }
-    [Key]
+
+    [Required]
     public string SourceName { get; set; } = string.Empty;
+
     public string JobTitle { get; set; } = string.Empty;
     public string JobDescription { get; set; } = string.Empty;
     public string JobType { get; set; } = string.Empty;

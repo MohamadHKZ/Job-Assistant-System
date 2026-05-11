@@ -34,41 +34,34 @@ public class AppDbContext : DbContext
             .WithOne()
             .HasForeignKey<EmbeddedProfile>(ep => ep.ProfileId);
 
-        modelBuilder.Entity<EmbeddedJobPost>()
-            .HasOne(ejp => ejp.NormalizedJobPost)
-            .WithOne()
-            .HasForeignKey<EmbeddedJobPost>(ejp => ejp.JobPostId);
-
-        modelBuilder.Entity<NormalizedJobPost>()
-            .HasOne(njp => njp.JobPost)
-            .WithOne()
-            .HasForeignKey<NormalizedJobPost>(njp => njp.JobPostId);
-
         modelBuilder.Entity<ProfileQualifications>()
             .HasOne(q => q.Profile)
             .WithOne(p => p.ProfileQualifications)
             .HasForeignKey<ProfileQualifications>(q => q.ProfileId);
 
-        modelBuilder.Entity<JobPost>()
-            .HasKey(jp => new { jp.JobPostId, jp.SourceName });
+        // JobPost: single Guid PK + unique composite
+        modelBuilder.Entity<JobPost>().HasKey(jp => jp.Id);
+        modelBuilder.Entity<JobPost>().HasIndex(jp => new { jp.JobPostId, jp.SourceName }).IsUnique();
         modelBuilder.Entity<JobPost>()
             .HasOne(jp => jp.JobSource)
             .WithMany()
             .HasForeignKey(jp => jp.SourceName);
 
-        modelBuilder.Entity<EmbeddedJobPost>()
-            .HasKey(ejp => new { ejp.JobPostId, ejp.SourceName });
-        modelBuilder.Entity<EmbeddedJobPost>()
-            .HasOne(ejp => ejp.NormalizedJobPost)
-            .WithOne()
-            .HasForeignKey<EmbeddedJobPost>(ejp => new { ejp.JobPostId, ejp.SourceName });
-
-        modelBuilder.Entity<NormalizedJobPost>()
-            .HasKey(njp => new { njp.JobPostId, njp.SourceName });
+        // NormalizedJobPost: Guid Id is both PK and FK to JobPost.Id
+        modelBuilder.Entity<NormalizedJobPost>().HasKey(njp => njp.Id);
+        modelBuilder.Entity<NormalizedJobPost>().HasIndex(njp => new { njp.JobPostId, njp.SourceName }).IsUnique();
         modelBuilder.Entity<NormalizedJobPost>()
             .HasOne(njp => njp.JobPost)
             .WithOne()
-            .HasForeignKey<NormalizedJobPost>(njp => new { njp.JobPostId, njp.SourceName });
+            .HasForeignKey<NormalizedJobPost>(njp => njp.Id);
+
+        // EmbeddedJobPost: Guid Id is both PK and FK to NormalizedJobPost.Id
+        modelBuilder.Entity<EmbeddedJobPost>().HasKey(ejp => ejp.Id);
+        modelBuilder.Entity<EmbeddedJobPost>().HasIndex(ejp => new { ejp.JobPostId, ejp.SourceName }).IsUnique();
+        modelBuilder.Entity<EmbeddedJobPost>()
+            .HasOne(ejp => ejp.NormalizedJobPost)
+            .WithOne()
+            .HasForeignKey<EmbeddedJobPost>(ejp => ejp.Id);
 
         modelBuilder.Entity<UserRole>()
             .HasOne(ur => ur.User)

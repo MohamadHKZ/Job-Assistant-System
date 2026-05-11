@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from contextvars import ContextVar
-from typing import Dict, List
+from typing import List, Union
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -17,7 +17,7 @@ trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="-")
 
 
 class _TraceIdFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:        
+    def filter(self, record: logging.LogRecord) -> bool:
         record.trace_id = trace_id_ctx.get("-")
         return True
 
@@ -67,7 +67,7 @@ class Embedding_Entity(BaseModel):
     technical_skills: List[str] = []
     job_position_skills: List[str] = []
     field_skills: List[str] = []
-    job_title: List[str] = []
+    job_title: Union[str, List[str]] = ""
     soft_skills: List[str] = []
     technologies: List[str] = []
 
@@ -82,11 +82,28 @@ SKILL_FIELDS = [
 ]
 
 
+def _iter_skills_for_field(job: Embedding_Entity, field: str):
+    """Yield text lines to embed for a field; job_title accepts a single string or a list."""
+    raw = getattr(job, field)
+    if field == "job_title":
+        if isinstance(raw, str):
+            if raw.strip():
+                yield raw.strip()
+            return
+        for s in raw or []:
+            if s:
+                yield str(s)
+        return
+    for s in raw or []:
+        if s:
+            yield str(s)
+
+
 def _count_skills(jobs: List[Embedding_Entity]) -> int:
     total = 0
     for job in jobs:
         for field in SKILL_FIELDS:
-            total += len(getattr(job, field))
+            total += sum(1 for _ in _iter_skills_for_field(job, field))
     return total
 
 
@@ -96,9 +113,18 @@ def embed_jobs(jobs):
 
     for job_idx, job in enumerate(jobs):
         for field in SKILL_FIELDS:
-            for skill in getattr(job, field):
+            for skill in _iter_skills_for_field(job, field):
                 texts.append(skill)
                 index_map.append((job_idx, field, skill))
+
+    if not texts:
+        return [
+            {
+                "id": job.id,
+                "embeddings": {field: [] for field in SKILL_FIELDS},
+            }
+            for job in jobs
+        ]
 
     vectors = model.encode(
         texts,

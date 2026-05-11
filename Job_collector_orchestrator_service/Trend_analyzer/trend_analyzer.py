@@ -12,7 +12,7 @@ For every row of the `Trends` table it computes:
    `public."TechnicalSkillsRecorded"` filtered by `JobTitle ~* <pattern>`.
 
 2. `JobsCount` (integer) - the number of normalized job posts whose refined
-   job title matches the trend's pattern. Source:
+   job title text (`JobTitleRefined`) matches the trend's pattern. Source:
    `public."NormalizedJobPosts"`.
 
 Each trend row is associated with a POSIX regular expression defined in
@@ -113,11 +113,8 @@ def _fetch_job_count(cur, pattern: str) -> int:
     cur.execute(
         'SELECT COUNT(*) '
         'FROM public."NormalizedJobPosts" njp '
-        'WHERE EXISTS ('
-        '    SELECT 1 '
-        '    FROM jsonb_array_elements_text(njp."JobTitleRefined") AS t(title) '
-        '    WHERE t.title ~* %s'
-        ')',
+        'WHERE njp."JobTitleRefined" IS NOT NULL '
+        '  AND njp."JobTitleRefined" ~* %s',
         (pattern,),
     )
     (jobs_count,) = cur.fetchone()

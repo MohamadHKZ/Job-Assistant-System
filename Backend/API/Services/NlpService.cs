@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using API.Entities;
+using API.DTOs;
 using API.Logging;
 using JobAssistantSystem.API.Errors;
 using JobAssistantSystem.Backend.API.Interfaces;

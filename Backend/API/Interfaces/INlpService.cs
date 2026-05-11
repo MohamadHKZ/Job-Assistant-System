@@ -1,4 +1,4 @@
-using API.Entities;
+using API.DTOs;
 
 namespace JobAssistantSystem.Backend.API.Interfaces
 {

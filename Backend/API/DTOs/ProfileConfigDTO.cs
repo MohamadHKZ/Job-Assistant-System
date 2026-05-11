@@ -15,7 +15,8 @@ public class ProfileConfigDTO
     public List<string> FieldSkills { get; set; } = new();
 
     [JsonPropertyName("job_title")]
-    public List<string> JobTitle { get; set; } = new();
+    [JsonConverter(typeof(JobTitleStringJsonConverter))]
+    public string JobTitle { get; set; } = "";
 
     [JsonPropertyName("soft_skills")]
     public List<string> SoftSkills { get; set; } = new();

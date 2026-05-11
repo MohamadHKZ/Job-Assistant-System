@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
 
 namespace API.Entities
 {
@@ -8,8 +7,7 @@ namespace API.Entities
     {
         [Key]
         public int ProfileId { get; set; }
-        [Column(TypeName = "jsonb")]
-        public List<string> SeekedJobTitle { get; set; } = new List<string>();
+        public string SeekedJobTitle { get; set; } = string.Empty;
         [Column(TypeName = "jsonb")]
         public List<string> TechnicalSkills { get; set; } = new List<string>();
         [Column(TypeName = "jsonb")]

@@ -6,12 +6,16 @@ namespace API.Entities;
 public class NormalizedJobPost
 {
     [Key]
+    public Guid Id { get; set; }
+
+    [Required]
     public long JobPostId { get; set; }
-    [Key]
+
+    [Required]
     public string SourceName { get; set; } = string.Empty;
+
     public string ExperienceLevelRefined { get; set; } = string.Empty;
-    [Column(TypeName = "jsonb")]
-    public List<string> JobTitleRefined { get; set; } = new();
+    public string JobTitleRefined { get; set; } = string.Empty;
 
     [Column(TypeName = "jsonb")]
     public List<string> RequiredFieldSkills { get; set; } = new();
@@ -27,7 +31,6 @@ public class NormalizedJobPost
 
     [Column(TypeName = "jsonb")]
     public List<string> Technologies { get; set; } = new();
-
 
     public JobPost JobPost { get; set; } = null!;
 }

@@ -34,7 +34,7 @@ OUTPUT REQUIREMENTS (STRICT)
 REQUIRED OUTPUT STRUCTURE (PER ARRAY ELEMENT)
 {
   "id": int,
-  "job_title": [string], IMPORTANT (job_title should be array even if it is a single element),
+  "job_title": string,
   "technical_skills": [string],
   "technologies": [string],
   "experience_level": string,
@@ -46,6 +46,7 @@ REQUIRED OUTPUT STRUCTURE (PER ARRAY ELEMENT)
 CATEGORY RULES
 
 1) Job Title (UPDATED RULE)
+- Output **job_title** as a **single plain text** (not an array): one normalized job title.
 - Normalize job titles into the MOST COMMON and INDUSTRY-STANDARD role names.
 - Do NOT keep rare, ambiguous, or company-specific variations.
 - Remove seniority, hype terms, and descriptors (e.g., Senior, Junior, 10x, Rockstar, Contract).
