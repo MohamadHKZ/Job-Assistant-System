@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Pgvector;
 
 namespace API.Entities;
 
@@ -20,8 +21,8 @@ public class EmbeddedJobPost
     [Column(TypeName = "jsonb")]
     public List<SkillEmbedding> EmbeddedJobPositionSkills { get; set; } = new();
 
-    [Column(TypeName = "jsonb")]
-    public List<SkillEmbedding> EmbeddedJobTitle { get; set; } = new();
+    [Column(TypeName = "vector(1024)")]
+    public Vector EmbeddedJobTitle { get; set; } = new(new float[1024]);
 
     [Column(TypeName = "jsonb")]
     public List<SkillEmbedding> EmbeddedFieldSkills { get; set; } = new();

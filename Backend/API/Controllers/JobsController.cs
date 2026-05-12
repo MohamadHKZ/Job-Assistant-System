@@ -23,7 +23,7 @@ namespace Job_Assistant_System.API.Controllers
 
             var embeddedProfile = await _profileService.GetEmbeddedProfileByIdAsync(profileId);
             var profileQualifications = await _profileService.GetProfileQualificationsByIdAsync(profileId);
-            var embeddedJobPosts = await _jobsService.GetAllEmbeddedJobPostsAsync();
+            var embeddedJobPosts = await _jobsService.GetJobsBySimilarTitleAsync(embeddedProfile!.EmbeddedJobTitle);
 #pragma warning disable CS8601 // Possible null reference assignment.c
             var profileEntity = new MatchingObjectDTO
             {
@@ -33,11 +33,7 @@ namespace Job_Assistant_System.API.Controllers
                 Techonologies = profileQualifications?.Technologies ?? new(),
                 Embeddings = new EmbeddingCategories
                 {
-                    TechnicalSkills = embeddedProfile?.EmbeddedTechnicalSkills,
                     JobPositionSkills = embeddedProfile?.EmbeddedJobPositionSkills,
-                    FieldSkills = embeddedProfile?.EmbeddedFieldSkills,
-                    JobTitle = embeddedProfile?.EmbeddedJobTitle,
-                    SoftSkills = embeddedProfile?.EmbeddedSoftSkills,
                     Technologies = embeddedProfile?.EmbeddedTechnologies
                 }
             };
@@ -51,11 +47,7 @@ namespace Job_Assistant_System.API.Controllers
                 Techonologies = jp.NormalizedJobPost?.Technologies ?? new(),
                 Embeddings = new EmbeddingCategories
                 {
-                    TechnicalSkills = jp.EmbeddedTechnicalSkills,
                     JobPositionSkills = jp.EmbeddedJobPositionSkills,
-                    FieldSkills = jp.EmbeddedFieldSkills,
-                    JobTitle = jp.EmbeddedJobTitle,
-                    SoftSkills = jp.EmbeddedSoftSkills,
                     Technologies = jp.EmbeddedTechnologies
                 }
             }).ToList();

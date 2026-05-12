@@ -20,6 +20,8 @@ using Microsoft.Extensions.Logging.Console;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using Npgsql;
+using Pgvector.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.Configure(options =>
@@ -74,10 +76,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
     var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
     dataSourceBuilder.EnableDynamicJson();
+    dataSourceBuilder.UseVector();
 
     var dataSource = dataSourceBuilder.Build();
 
-    options.UseNpgsql(dataSource);
+    options.UseNpgsql(dataSource, o => o.UseVector());
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();

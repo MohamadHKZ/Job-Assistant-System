@@ -4,9 +4,24 @@ using API.Entities;
 using JobAssistantSystem.API.Errors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Pgvector;
 
 class ProfileService(AppDbContext _dbContext, ILogger<ProfileService> _logger) : IProfileService
 {
+    private static Vector JobTitleEmbeddingsToVector(List<SkillEmbedding> jobTitle)
+    {
+        var floats = new float[1024];
+        var doubles = jobTitle.FirstOrDefault()?.Vector;
+        if (doubles is { Count: > 0 })
+        {
+            var n = Math.Min(doubles.Count, 1024);
+            for (var i = 0; i < n; i++)
+                floats[i] = (float)doubles[i];
+        }
+
+        return new Vector(floats);
+    }
+
     public async Task<Profile> CreateProfileAsync(ProfileConfigDTO profileConfig, EmbeddingCategories embedding, int userId)
     {
         Profile profile = new Profile();
@@ -23,7 +38,7 @@ class ProfileService(AppDbContext _dbContext, ILogger<ProfileService> _logger) :
             EmbeddedSoftSkills = embedding.SoftSkills,
             EmbeddedJobPositionSkills = embedding.JobPositionSkills,
             EmbeddedTechnologies = embedding.Technologies,
-            EmbeddedJobTitle = embedding.JobTitle
+            EmbeddedJobTitle = JobTitleEmbeddingsToVector(embedding.JobTitle)
         };
         await _dbContext.EmbeddedProfiles.AddAsync(embeddedProfile);
         await _dbContext.SaveChangesAsync();
@@ -81,7 +96,7 @@ class ProfileService(AppDbContext _dbContext, ILogger<ProfileService> _logger) :
             embeddedProfile.EmbeddedFieldSkills = embedding.FieldSkills;
             embeddedProfile.EmbeddedSoftSkills = embedding.SoftSkills;
             embeddedProfile.EmbeddedJobPositionSkills = embedding.JobPositionSkills;
-            embeddedProfile.EmbeddedJobTitle = embedding.JobTitle;
+            embeddedProfile.EmbeddedJobTitle = JobTitleEmbeddingsToVector(embedding.JobTitle);
             embeddedProfile.EmbeddedTechnologies = embedding.Technologies;
         }
         await _dbContext.SaveChangesAsync();

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import asyncio
 import psycopg2
+from pgvector.psycopg2 import register_vector
 
 import helpers as hp
 from Job_collector import LinkedInProvider, Provider
@@ -90,6 +91,7 @@ conn = None
 cur = None
 try:
     conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+    register_vector(conn)
 
     cur = conn.cursor()
 

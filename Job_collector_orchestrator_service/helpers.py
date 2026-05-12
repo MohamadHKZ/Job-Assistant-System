@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
+import numpy as np
 import httpx
 import uuid_utils
 from Job_collector import JobCollector, Provider, Job
@@ -158,16 +159,20 @@ def insert_rows(cur, conn, table_name: str, rows: list[dict]) -> bool:
         return False
 
 
-_JOB_TITLE_QUOTE_CHARS = "\"'“”‘’`"
 
 
-def _strip_job_title_quotes(value) -> str:
-    if value is None:
-        return ""
-    text = str(value).strip()
-    for ch in _JOB_TITLE_QUOTE_CHARS:
-        text = text.replace(ch, "")
-    return text.strip()
+def _job_title_vector(emb_job_title: List[SkillEmbedding]) -> np.ndarray:
+    """Single pgvector column: first job-title embedding, exactly 1024 floats."""
+    if not emb_job_title:
+        return np.zeros(1024, dtype=np.float32)
+    raw = np.array(emb_job_title[0].vector, dtype=np.float32)
+    if raw.size >= 1024:
+        return raw[:1024].copy()
+    out = np.zeros(1024, dtype=np.float32)
+    if raw.size > 0:
+        out[: raw.size] = raw
+    return out
+
 
 
 def prepare_data(jobs: list[Job], refined_data: Response):
@@ -182,9 +187,8 @@ def prepare_data(jobs: list[Job], refined_data: Response):
         emb = item.embeddings.embeddings
         job_id = str(uuid_utils.uuid7())
 
-        job_title = _strip_job_title_quotes(job.job_title)
-        refined_job_title = _strip_job_title_quotes(entity.job_title)
-
+        job_title = job.job_title
+        refined_job_title = entity.job_title
         jobs_data.append(
             {
                 "Id": job_id,
@@ -206,7 +210,7 @@ def prepare_data(jobs: list[Job], refined_data: Response):
                 "Id": job_id,
                 "JobPostId": entity.id,
                 "SourceName": job.source_name,
-                "ExperienceLevelRefined": Json(entity.experience_level),
+                "ExperienceLevelRefined": entity.experience_level,
                 "JobTitleRefined": refined_job_title,
                 "RequiredFieldSkills": Json(entity.field_skills),
                 "RequiredJobPositionSkills": Json(entity.job_position_skills),
@@ -215,7 +219,6 @@ def prepare_data(jobs: list[Job], refined_data: Response):
                 "Technologies": Json(entity.technologies),
             }
         )
-
         embeddings.append(
             {
                 "Id": job_id,
@@ -223,7 +226,7 @@ def prepare_data(jobs: list[Job], refined_data: Response):
                 "SourceName": job.source_name,
                 "EmbeddedTechnicalSkills": Json([skill.model_dump() for skill in emb.technical_skills]),
                 "EmbeddedJobPositionSkills": Json([skill.model_dump() for skill in emb.job_position_skills]),
-                "EmbeddedJobTitle": Json([skill.model_dump() for skill in emb.job_title]),
+                "EmbeddedJobTitle": _job_title_vector(emb.job_title),
                 "EmbeddedFieldSkills": Json([skill.model_dump() for skill in emb.field_skills]),
                 "EmbeddedSoftSkills": Json([skill.model_dump() for skill in emb.soft_skills]),
                 "EmbeddedTechnologies": Json([skill.model_dump() for skill in emb.technologies]),

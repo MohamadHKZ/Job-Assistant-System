@@ -3,3 +3,5 @@ pydantic
 httpx
 apify-client
 uuid-utils
+numpy
+pgvector
