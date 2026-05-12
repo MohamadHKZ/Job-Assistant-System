@@ -2,7 +2,7 @@
 
 AI-powered job matching + market insights platform (Graduation Project).
 
-## Summary (for recruiters)
+## Summary
 
 Job Assistant System is a microservice-based application that **collects job posts**, **normalizes them with an LLM**, **embeds both jobs and user profiles**, and then **recommends the best matches** using a hybrid approach:
 
@@ -23,24 +23,24 @@ In parallel, the system computes **job-market trends** (top technical skills per
 ## Architecture
 
 ```mermaid
-flowchart LR
-  FE[Frontend (React/Vite)] -->|JWT| BE[Backend API (.NET 9)]
+graph LR;
+  FE[Frontend - React/Vite] -->|JWT| BE[Backend API - .NET 9]
 
-  BE -->|/llm/ask| NLP[NLP Service (FastAPI)]
-  BE -->|/embed/jobs| EMB[Embedding Service (FastAPI + SentenceTransformers)]
-  BE -->|/match/jobs| MATCH[Matching & Ranking Service (FastAPI)]
+  BE -->|llm ask| NLP[NLP Service - FastAPI]
+  BE -->|embed jobs| EMB[Embedding Service - FastAPI]
+  BE -->|match jobs| MATCH[Matching and Ranking - FastAPI]
 
-  ORCH[NLP&Embedding Orchestrator (FastAPI)] --> NLP
+  ORCH[NLP + Embedding Orchestrator] --> NLP
   ORCH --> EMB
 
-  COLLECT[Job Collector Orchestrator] -->|/nlp-embed| ORCH
-  COLLECT -->|INSERT| DB[(PostgreSQL + pgvector)]
+  COLLECT[Job Collector Orchestrator] -->|nlp embed| ORCH
+  COLLECT -->|INSERT| DB[PostgreSQL + pgvector]
 
   BE -->|EF Core| DB
-  BE -->|vector top-K| DB
+  BE -->|vector top K| DB
 
-  LOG[Log Collector] -->|docker logs -> volume| VOL[(logs_data volume)]
-  BE -->|Admin logs endpoint reads| VOL
+  LOG[Log Collector] -->|docker logs| VOL[logs_data volume]
+  BE -->|admin reads logs| VOL
 ```
 
 ## Main services (what each one does)
