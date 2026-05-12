@@ -27,14 +27,14 @@ graph LR;
   FE[Frontend - React/Vite] -->|JWT| BE[Backend API - .NET 9]
 
   BE -->|llm ask| NLP[NLP Service - FastAPI]
-  BE -->|embed jobs| EMB[Embedding Service - FastAPI]
+  BE -->|embed profile| EMB[Embedding Service - FastAPI]
   BE -->|match jobs| MATCH[Matching and Ranking - FastAPI]
 
   ORCH[NLP + Embedding Orchestrator] --> NLP
   ORCH --> EMB
 
   COLLECT[Job Collector Orchestrator] -->|nlp embed| ORCH
-  COLLECT -->|INSERT| DB[PostgreSQL + pgvector]
+  COLLECT -->|INSERT jobs and the trend analysis| DB[PostgreSQL + pgvector]
 
   BE -->|EF Core| DB
   BE -->|vector top K| DB
