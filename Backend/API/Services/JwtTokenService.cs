@@ -3,12 +3,20 @@ using System.Security.Claims;
 using System.Text;
 using API.Entities;
 using JobAssistantSystem.API.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace JobAssistantSystem.API.Services
 {
     public class JwtTokenService : IJwtTokenService
     {
+        private readonly IConfiguration _configuration;
+
+        public JwtTokenService(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
         public string GenerateToken(User user, IEnumerable<string> roles)
         {
             var claimList = new List<Claim>
@@ -31,7 +39,7 @@ namespace JobAssistantSystem.API.Services
                 expires: DateTime.UtcNow.AddDays(7),
                 claims: claimList,
                 signingCredentials: new SigningCredentials(
-                    new SymmetricSecurityKey(Encoding.UTF8.GetBytes("super secret key super secret key")),
+                    new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!)),
                     SecurityAlgorithms.HmacSha256Signature
                 ));
             var jwtHandler = new JwtSecurityTokenHandler();

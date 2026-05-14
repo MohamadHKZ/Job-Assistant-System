@@ -27,6 +27,7 @@ services:
       EMBEDDING_SERVICE_BASEURL: "http://embedding_service:5001"
       ASPNETCORE_URLS: http://0.0.0.0:5000
       ConnectionStrings__DefaultConnection: "${JobAssistantDbConnectionString}"
+      Jwt__Key: "${JWT_KEY}"
     volumes:
       - logs_data:/logs:ro
 
@@ -56,14 +57,14 @@ services:
 
   frontend:
     image: mohamad121/jobassistantsystem-frontend:latest
-    build: ./Frontend
+    build:
+      context: ./Frontend
+      args:
+        VITE_BACKEND_API_BASE_URL: "${VITE_BACKEND_API_BASE_URL:-http://localhost:5000}"
     ports:
-      - "5004:5173"
+      - "5004:80"
     depends_on:
       - backend
-    environment:
-      VITE_BACKEND_API_BASE_URL: "http://localhost:5000"
-      #because it run in the browser, it should use localhost to access the backend
 
   job_collector_orchestrator:
     image: mohamad121/jobassistantsystem-job_collector_orchestrator:latest
