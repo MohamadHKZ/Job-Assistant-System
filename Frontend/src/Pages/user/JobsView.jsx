@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Search, RefreshCw, Briefcase } from 'lucide-react';
+import { Search, RefreshCw, Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getRecommendedJobs } from '../../api/jobs';
 import Alert from '../../components/Alert';
 import EmptyState from '../../components/Emptystate';
 import JobCard from '../../components/JobCard';
+import JobDetailSidebar from '../../components/JobDetailSidebar';
 import Skeleton from '../../components/Skeleton';
 
 const JobSkeleton = () => (
@@ -33,6 +34,14 @@ const JobsView = ({ token, user }) => {
   const [query, setQuery] = useState('');
   const [activeType, setActiveType] = useState('All');
 
+  const [cursors, setCursors] = useState([{ score: null, id: null }]);
+  const [page, setPage] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [nextCursor, setNextCursor] = useState({ score: null, id: null });
+  const [selectedJob, setSelectedJob] = useState(null);
+
+  const listTopRef = useRef(null);
+
   const fetchJobs = useCallback(async () => {
     if (!user?.jobSeekerId) {
       setError('Please log in to view jobs');
@@ -44,18 +53,63 @@ const JobsView = ({ token, user }) => {
 
     try {
       const profileId = localStorage.getItem('profileId');
-      const data = await getRecommendedJobs(token, profileId);
-      setJobs(Array.isArray(data) ? data : []);
+      const cur = cursors[page] ?? { score: null, id: null };
+      const data = await getRecommendedJobs(
+        token,
+        profileId,
+        cur.score,
+        cur.id,
+      );
+      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      setHasNextPage(Boolean(data.hasNextPage));
+      setNextCursor({
+        score: data.nextCursorScore ?? null,
+        id: data.nextCursorId ?? null,
+      });
     } catch (err) {
       setError(err);
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
+  }, [token, user, page, cursors]);
 
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  useEffect(() => {
+    listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [page]);
+
+  const handleRefresh = () => {
+    setLoading(true);
+    setError(null);
+    setCursors(() => [{ score: null, id: null }]);
+    setPage(0);
+    setSelectedJob(null);
+  };
+
+  const goNext = () => {
+    if (
+      !hasNextPage ||
+      nextCursor.score == null ||
+      nextCursor.id == null ||
+      nextCursor.id === ''
+    )
+      return;
+    setCursors((prev) => [
+      ...prev.slice(0, page + 1),
+      { score: nextCursor.score, id: nextCursor.id },
+    ]);
+    setPage((p) => p + 1);
+    setSelectedJob(null);
+  };
+
+  const goPrev = () => {
+    if (page <= 0) return;
+    setPage((p) => p - 1);
+    setSelectedJob(null);
+  };
 
   const jobTypes = useMemo(() => {
     const set = new Set();
@@ -83,7 +137,7 @@ const JobsView = ({ token, user }) => {
   }, [jobs, query, activeType]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <div ref={listTopRef} className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
@@ -92,12 +146,12 @@ const JobsView = ({ token, user }) => {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             {loading
               ? 'Finding the best matches...'
-              : `${filtered.length} of ${jobs.length} jobs matched to your profile`}
+              : `Page ${page + 1} · ${filtered.length} of ${jobs.length} on this page match filters`}
           </p>
         </div>
         <button
           type="button"
-          onClick={fetchJobs}
+          onClick={handleRefresh}
           disabled={loading}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 text-sm font-medium text-slate-700 dark:text-slate-200 hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-60 transition-colors focus-ring"
         >
@@ -148,7 +202,7 @@ const JobsView = ({ token, user }) => {
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <JobSkeleton key={i} />
           ))}
         </div>
@@ -163,12 +217,45 @@ const JobsView = ({ token, user }) => {
           }
         />
       ) : (
-        <motion.div layout className="grid gap-4 md:grid-cols-2">
-          {filtered.map((job, index) => (
-            <JobCard key={job.jobId || index} job={job} index={index} />
-          ))}
-        </motion.div>
+        <>
+          <motion.div layout className="grid gap-4 md:grid-cols-2">
+            {filtered.map((job, index) => (
+              <JobCard
+                key={job.id ?? index}
+                job={job}
+                index={index}
+                onViewDetails={setSelectedJob}
+              />
+            ))}
+          </motion.div>
+
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={page === 0 || loading}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/60 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-emerald-400/40 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:text-emerald-400 sm:w-auto"
+            >
+              <ChevronLeft size={18} />
+              Previous
+            </button>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              Page {page + 1}
+            </span>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!hasNextPage || loading}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/60 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-emerald-400/40 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:text-emerald-400 sm:w-auto"
+            >
+              Next
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </>
       )}
+
+      <JobDetailSidebar job={selectedJob} onClose={() => setSelectedJob(null)} />
     </div>
   );
 };

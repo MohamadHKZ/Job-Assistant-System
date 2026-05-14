@@ -15,7 +15,7 @@ In parallel, the system computes **job-market trends** (top technical skills per
 
 - **PostgreSQL + pgvector (1024-d vectors)**: embeddings are stored natively (`vector(1024)`) and queried via cosine distance for similarity retrieval.
 - **HNSW vector index (ANN)**: the database is configured with an **HNSW index** for fast vector similarity search on the job-title embedding column.
-- **Index-based pagination (keyset/cursor pagination)**: an API endpoint supports **cursor pagination** over large job datasets (index-friendly alternative to OFFSET/LIMIT).
+- **Keyset pagination for vector-ranked results**: the recommended-jobs endpoint supports **cursor pagination** using a composite cursor `(score, id)` (index-friendly alternative to OFFSET/LIMIT).
 - **Hybrid ranking pipeline**: fast ANN pre-filtering in DB + a Python ranking microservice for nuanced scoring.
 - **Observability**: a trace id (`X-Trace-Id`) is propagated from the .NET API to Python services so logs can be correlated across services. A log-collector container snapshots logs to a shared volume, exposed via an admin endpoint.
 - **Security basics**: JWT authentication, password hashing, and admin-only routes.
@@ -86,7 +86,7 @@ Embeddings are stored using:
   - `POST /api/profile/{userId}/save` / `PUT /api/profile/{profileId}/update`
   - `GET /api/profile/{profileId}`
 - Matching
-  - `GET /api/jobs/{profileId}` (recommended jobs)
+  - `GET /api/jobs/{profileId}` (recommended jobs, supports cursor pagination)
 - Trends
   - `GET /api/trends`
 - Admin (JWT role: Admin)
@@ -94,11 +94,17 @@ Embeddings are stored using:
   - `GET /api/admin/logs?container=backend|...`
   - `GET/PUT /api/admin/settings`
 
-### Index-based pagination endpoint
+### Cursor pagination (recommended jobs)
 
-- `GET /api/jobposts?limit=50&cursor=<guid>`
-  - Returns `{ items: [...], nextCursor: "..." }`.
-  - Uses **keyset/cursor pagination** ordered by `Id DESC` (index-friendly).
+- `GET /api/jobs/{profileId}?cursorScore=<float>&cursorId=<guid>`
+  - Omit `cursorScore` and `cursorId` for the first page.
+  - Returns `{ jobs: [...], hasNextPage: true, nextCursorScore: 0.84, nextCursorId: "..." }`.
+  - Uses **keyset/cursor pagination** over the _vector similarity_ ordering (stable and index-friendly):
+    - `score = ROUND((1 - cosine_distance(EmbeddedJobTitle, profileJobTitleVector))::numeric, 2)`
+    - Filters low-similarity rows with `score > 0.6`
+    - `ORDER BY score DESC, id ASC`
+    - Next page predicate: `score < cursorScore OR (score = cursorScore AND id > cursorId)`
+  - Note: `cursorScore`/`nextCursorScore` are DB similarity scores (0–1). The `JobPostDTO.Score` field in the response is the ML ranking score (0–100) returned by the matching service.
 
 ## Performance notes
 

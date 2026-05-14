@@ -15,7 +15,11 @@ namespace Job_Assistant_System.API.Controllers
     public class JobsController(IJobsService _jobsService, IProfileService _profileService, IMatchingRankingService _matchingRankingService, ILogger<JobsController> _logger) : BaseController
     {
         [HttpGet("{profileId}")]
-        public async Task<ActionResult<IEnumerable<JobPostDTO>>> GetJobs(int profileId)
+        public async Task<ActionResult<JobsPageDTO>> GetJobs(
+            int profileId,
+            [FromQuery] float? cursorScore = null,
+            [FromQuery] Guid? cursorId = null,
+            CancellationToken cancellationToken = default)
         {
             var profile = await _profileService.GetProfileByIdAsync(profileId);
             if (profile is null)
@@ -23,7 +27,17 @@ namespace Job_Assistant_System.API.Controllers
 
             var embeddedProfile = await _profileService.GetEmbeddedProfileByIdAsync(profileId);
             var profileQualifications = await _profileService.GetProfileQualificationsByIdAsync(profileId);
-            var embeddedJobPosts = await _jobsService.GetJobsBySimilarTitleAsync(embeddedProfile!.EmbeddedJobTitle);
+
+            const int pageSize = 5;
+            var (embeddedJobPostsList, hasNextPage, nextCursorScore, nextCursorId) =
+                await _jobsService.GetPagedJobsAsync(
+                    embeddedProfile!.EmbeddedJobTitle,
+                    pageSize,
+                    cursorScore,
+                    cursorId,
+                    cancellationToken);
+
+            var embeddedJobPosts = embeddedJobPostsList;
 #pragma warning disable CS8601 // Possible null reference assignment.c
             var profileEntity = new MatchingObjectDTO
             {
@@ -57,13 +71,14 @@ namespace Job_Assistant_System.API.Controllers
             LogRankedJobs(profileId, rankedJobs);
 
             var rankedJobIds = rankedJobs
-                .Where(rj => rj.Score > 60)
                 .OrderByDescending(rj => rj.Score)
                 .Select(rj => rj.Id)
                 .ToList();
 
             var embeddedJobPostsById = embeddedJobPosts.ToLookup(jp => jp.Id.ToString());
             var jobPostsDTO = new List<JobPostDTO>();
+            var scoreById = rankedJobs.ToDictionary(rj => rj.Id, rj => rj.Score);
+
             foreach (var rankedJobId in rankedJobIds)
             {
                 EmbeddedJobPost? fullJobPost = embeddedJobPostsById[rankedJobId].FirstOrDefault();
@@ -82,6 +97,8 @@ namespace Job_Assistant_System.API.Controllers
                 NormalizedJobPost? normalizedJobPost = fullJobPost.NormalizedJobPost;
                 JobPost? jobPost = normalizedJobPost?.JobPost;
 
+                scoreById.TryGetValue(rankedJobId, out var mlScore);
+
                 jobPostsDTO.Add(new JobPostDTO
                 {
                     Id = jobGuid,
@@ -92,10 +109,18 @@ namespace Job_Assistant_System.API.Controllers
                     JobDescription = jobPost?.JobDescription,
                     TechnicalSkills = normalizedJobPost?.RequiredTechnicalSkills,
                     Url = jobPost?.Url,
-                    ExperienceLevel = normalizedJobPost?.ExperienceLevelRefined
+                    ExperienceLevel = normalizedJobPost?.ExperienceLevelRefined,
+                    Score = (float)mlScore
                 });
             }
-            return Ok(jobPostsDTO);
+
+            return Ok(new JobsPageDTO
+            {
+                Jobs = jobPostsDTO,
+                HasNextPage = hasNextPage,
+                NextCursorScore = nextCursorScore,
+                NextCursorId = nextCursorId
+            });
         }
 
         private void LogMatchingObjectsBeforeRanking(int profileId, MatchingObjectDTO profileEntity, List<MatchingObjectDTO> jobPostsList)

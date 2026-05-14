@@ -259,9 +259,9 @@ const ProfileUser = ({ user, token }) => {
         >
           <div className="grid gap-5 md:grid-cols-2">
             <SkillsInput
-              label="Technical Skills"
-              skills={technicalSkills}
-              setSkills={setTechnicalSkills}
+              label="Technologies"
+              skills={technologies}
+              setSkills={setTechnologies}
               placeholder="e.g. React, TypeScript, SQL..."
             />
             <SkillsInput

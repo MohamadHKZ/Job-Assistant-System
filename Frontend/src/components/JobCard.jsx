@@ -1,18 +1,16 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2,
   MapPin,
   Briefcase,
   ExternalLink,
-  ChevronDown,
+  PanelRightOpen,
 } from 'lucide-react';
+import { getMatchQuality } from '../utils/matchQuality';
 
 const VISIBLE_SKILLS = 6;
 
-const JobCard = ({ job, index = 0 }) => {
-  const [expanded, setExpanded] = useState(false);
-
+const JobCard = ({ job, index = 0, onViewDetails }) => {
   const skills = Array.isArray(job.technicalSkills) ? job.technicalSkills : [];
   const visibleSkills = skills.slice(0, VISIBLE_SKILLS);
   const overflow = skills.length - visibleSkills.length;
@@ -24,6 +22,8 @@ const JobCard = ({ job, index = 0 }) => {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+  const match = getMatchQuality(job.score);
 
   return (
     <motion.article
@@ -62,31 +62,44 @@ const JobCard = ({ job, index = 0 }) => {
               </span>
             )}
           </div>
+          <div className="mt-2">
+            <span
+              className={`inline-flex rounded-lg border px-2 py-0.5 text-[11px] font-semibold ${match.className}`}
+            >
+              {match.label}
+            </span>
+          </div>
         </div>
       </div>
 
       {job.jobDescription && (
         <div className="mt-4">
-          <p
-            className={`text-sm text-slate-600 dark:text-slate-300 leading-relaxed ${
-              expanded ? '' : 'line-clamp-3'
-            }`}
-          >
+          <p className="line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
             {job.jobDescription}
           </p>
-          {job.jobDescription.length > 180 && (
+          {typeof onViewDetails === 'function' && (
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
+              onClick={() => onViewDetails(job)}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
             >
-              {expanded ? 'Show less' : 'Read more'}
-              <ChevronDown
-                size={12}
-                className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
-              />
+              <PanelRightOpen size={14} />
+              View details
             </button>
           )}
+        </div>
+      )}
+
+      {!job.jobDescription && typeof onViewDetails === 'function' && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => onViewDetails(job)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
+          >
+            <PanelRightOpen size={14} />
+            View details
+          </button>
         </div>
       )}
 
