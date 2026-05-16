@@ -70,16 +70,27 @@ builder.Services.AddHttpClient<IEmbeddingService, EmbeddingService>()
 builder.Services.AddHttpClient<IMatchingRankingService, MatchingRankingService>()
     .AddHttpMessageHandler<TraceIdDelegatingHandler>();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+// IMPORTANT: NpgsqlDataSource owns the connection pool.
+// It must be registered once (singleton) and reused; otherwise each request gets its own pool
+// and Postgres will hit 'too many clients' under load.
+builder.Services.AddSingleton<NpgsqlDataSource>(sp =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("Connection string 'DefaultConnection' is missing or empty.");
+    }
 
     var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
     dataSourceBuilder.EnableDynamicJson();
     dataSourceBuilder.UseVector();
+    return dataSourceBuilder.Build();
+});
 
-    var dataSource = dataSourceBuilder.Build();
-
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+{
+    var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
     options.UseNpgsql(dataSource, o => o.UseVector());
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -121,3 +132,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposed for WebApplicationFactory in integration tests.
+public partial class Program;

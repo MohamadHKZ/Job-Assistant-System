@@ -5,15 +5,44 @@ on:
   pull_request:
 
 jobs:
-  build:
+  test:
+    name: API tests
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Backend/API.Tests/API.Tests.csproj
+
+      - name: Build test project
+        run: dotnet build Backend/API.Tests/API.Tests.csproj --no-restore --configuration Release
+
+      - name: Run API tests
+        run: dotnet test Backend/API.Tests/API.Tests.csproj --no-build --configuration Release --results-directory Backend/API.Tests/TestResults --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: Backend/API.Tests/TestResults/results.trx
+
+  build:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
