@@ -87,6 +87,12 @@ class JobsService(AppDbContext _dbContext) : IJobsService
             .FirstOrDefaultAsync(jp => jp.Id == jobId);
     }
 
+    // Upper bound on how many ANN candidates the index scan retrieves before
+    // score-threshold filtering. All rows with Score > 0.6 have a cosine distance
+    // < 0.4, so they are always the nearest neighbours and will be included as
+    // long as this limit exceeds the total number of qualifying rows.
+    private const int CandidateLimit = 5_00;
+
     /// <summary>
     /// Vector title similarity keyset query. Score is ROUND((1 - cosine_distance)::numeric, 2) as real.
     /// </summary>
@@ -97,46 +103,55 @@ class JobsService(AppDbContext _dbContext) : IJobsService
         Guid? cursorId,
         CancellationToken cancellationToken)
     {
-        const string rankedSubquery = """
-            SELECT ranked."Id", ranked."Score"
-            FROM (
+        // MATERIALIZED forces the inner SELECT to run first using the vector index
+        // (ORDER BY col <=> vec LIMIT n is the pattern pgvector HNSW/IVFFlat indexes
+        // recognise). The outer query then applies the score threshold and keyset
+        // cursor on the already-materialised rows without touching the index again.
+        const string cte = """
+            WITH nearest AS MATERIALIZED  (
                 SELECT ep."Id",
                        ROUND((1 - (ep."EmbeddedJobTitle" <=> @profile_vec))::numeric, 2)::real AS "Score"
                 FROM "EmbeddedJobPosts" ep
-            ) ranked
-            WHERE ranked."Score" > 0.6
-            
+                ORDER BY ep."EmbeddedJobTitle" <=> @profile_vec ASC
+                LIMIT @candidate_limit
+            )
+            SELECT "Id", "Score"
+            FROM nearest
+            WHERE "Score" > 0.6
             """;
 
         List<VectorRankedJobIdRow> rows;
         if (cursorScore is null || cursorId is null)
         {
-            var sql = rankedSubquery + """
-                ORDER BY ranked."Score" DESC, ranked."Id" ASC
+            var sql = cte + """
+                
+                ORDER BY "Score" DESC, "Id" ASC
                 LIMIT @take
                 """;
             rows = await _dbContext.Database
                 .SqlQueryRaw<VectorRankedJobIdRow>(
                     sql,
                     new NpgsqlParameter("profile_vec", profileJobTitleVector) { DataTypeName = "vector" },
+                    new NpgsqlParameter("candidate_limit", CandidateLimit),
                     new NpgsqlParameter("take", take))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
         else
         {
-            var sql = rankedSubquery + """
+            var sql = cte + """
                   AND (
-                      ranked."Score" < @cursor_score
-                      OR (ranked."Score" = @cursor_score AND ranked."Id" > @cursor_id)
+                      "Score" < @cursor_score
+                      OR ("Score" = @cursor_score AND "Id" > @cursor_id)
                   )
-                ORDER BY ranked."Score" DESC, ranked."Id" ASC
+                ORDER BY "Score" DESC, "Id" ASC
                 LIMIT @take
                 """;
             rows = await _dbContext.Database
                 .SqlQueryRaw<VectorRankedJobIdRow>(
                     sql,
                     new NpgsqlParameter("profile_vec", profileJobTitleVector) { DataTypeName = "vector" },
+                    new NpgsqlParameter("candidate_limit", CandidateLimit),
                     new NpgsqlParameter("take", take),
                     new NpgsqlParameter("cursor_score", cursorScore.Value),
                     new NpgsqlParameter("cursor_id", cursorId.Value))
